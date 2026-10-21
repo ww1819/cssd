@@ -1,0 +1,58 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: cssd-app
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cssd}?stringtype=unspecified
+    username: ${DB_USER:cssd}
+    password: ${DB_PASSWORD:cssd}
+    hikari:
+      maximum-pool-size: 20
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    listener:
+      simple:
+        auto-startup: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: public
+    schemas: public
+    baseline-on-migrate: true
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+cssd:
+  jwt:
+    secret: ${CSSD_JWT_SECRET:cssd-dev-secret-change-me-please-32b}
+    expire-hours: 12
+  rabbit:
+    enabled: false
+  his:
+    mock: true
+  rfid:
+    mock: true
+logging:
+  level:
+    com.cssd: INFO

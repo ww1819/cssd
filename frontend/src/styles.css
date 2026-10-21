@@ -1,0 +1,17 @@
+:root {
+  --brand: #0f6e6b;
+  --brand-dark: #0b5553;
+  --paper: #f4f7f6;
+}
+html, body, #app { height: 100%; margin: 0; }
+body { font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--paper); }
+.station-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.station-btn {
+  height: 96px; font-size: 20px; border-radius: 12px;
+  background: var(--brand); color: #fff; border: none; cursor: pointer;
+}
+.station-btn:hover { background: var(--brand-dark); }
+.report-head {
+  background: var(--brand); color: #fff; padding: 8px 12px; font-weight: 600;
+}
+.page { padding: 16px; }

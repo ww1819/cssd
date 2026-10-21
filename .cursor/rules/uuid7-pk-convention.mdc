@@ -1,0 +1,15 @@
+---
+description: 新建表主键 UUID7、外键字符串落库（禁止自增数值主键）
+alwaysApply: true
+---
+
+# 新建表主键 / 外键约定（约定包 §2.4）
+
+新建业务表时：
+
+1. **主键**：禁止自增与数值主键；使用 **UUID7**（`varchar(36)`），应用层生成后插入。
+2. **外键**：一律以 **字符串** 保存；指向旧 bigint 表时存数值的十进制字符串。
+3. **旧表加指向新表的外键列**：也用 `varchar(36)`。
+4. Mapper 插入新表主键时 **不要** `useGeneratedKeys`。
+
+详见 `docs/reusable-engineering-conventions.md` §2.4。

@@ -1,0 +1,6 @@
+cssd:
+  rabbit:
+    enabled: true
+spring:
+  autoconfigure:
+    exclude: []
