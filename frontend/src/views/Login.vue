@@ -37,9 +37,12 @@ async function go() {
 </script>
 <style scoped>
 .login-wrap { height: 100%; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(160deg, #0f6e6b, #1a3a4a); }
-.box { width: 380px; }
-h2 { margin: 0 0 4px; color: #0f6e6b; }
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(26, 166, 160, 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 75%, rgba(11, 110, 122, 0.4), transparent 50%),
+    linear-gradient(160deg, #0b5f66 0%, #0a3d48 55%, #122a36 100%); }
+.box { width: 380px; border-radius: 14px; }
+h2 { margin: 0 0 4px; color: #0f7a82; }
 .sub, .hint { color: #667; font-size: 13px; }
 .hint { margin-top: 12px; }
 </style>

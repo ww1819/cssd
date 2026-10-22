@@ -1,17 +1,48 @@
 :root {
-  --brand: #0f6e6b;
-  --brand-dark: #0b5553;
-  --paper: #f4f7f6;
+  /* 医疗青绿：冷静、洁净、偏高级感 */
+  --brand: #0f7a82;
+  --brand-dark: #0b5f66;
+  --brand-soft: #d8eef0;
+  --brand-mist: #e8f1f4;
+  --paper: #f2f5f7;
+  --ink: #1e333a;
+  --muted: #5a7380;
+
+  --el-color-primary: #0f7a82;
+  --el-color-primary-light-3: #3a9aa1;
+  --el-color-primary-light-5: #6eb5ba;
+  --el-color-primary-light-7: #a3d0d3;
+  --el-color-primary-light-8: #bddce0;
+  --el-color-primary-light-9: #d8eef0;
+  --el-color-primary-dark-2: #0b5f66;
 }
+
 html, body, #app { height: 100%; margin: 0; }
-body { font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--paper); }
+body {
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
 .station-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
 .station-btn {
   height: 96px; font-size: 20px; border-radius: 12px;
-  background: var(--brand); color: #fff; border: none; cursor: pointer;
+  background: linear-gradient(145deg, #149098, #0b5f66);
+  color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 6px 16px rgba(11, 95, 102, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.station-btn:hover { background: var(--brand-dark); }
+.station-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(11, 95, 102, 0.28);
+}
+
 .report-head {
-  background: var(--brand); color: #fff; padding: 8px 12px; font-weight: 600;
+  background: linear-gradient(90deg, #0f7a82, #0b6e7a);
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 0 0 2px 2px;
 }
 .page { padding: 16px; }
