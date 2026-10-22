@@ -804,7 +804,8 @@ function logout() {
   display: flex;
   align-items: flex-end;
   height: 36px;
-  background: var(--brand-soft);
+  /* 比左侧菜单树更淡，拉开色差 */
+  background: color-mix(in srgb, var(--brand-soft) 38%, #ffffff);
   border: none;
   border-bottom: none;
   padding: 4px 8px 0 4px;
