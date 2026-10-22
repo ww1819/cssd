@@ -37,8 +37,16 @@ const router = createRouter({
     }
   ]
 })
+/** 浏览器刷新 / 冷启动时回到工位大厅；应用内点击菜单仍可正常跳转 */
+let coldStart = true
 router.beforeEach((to) => {
   const t = localStorage.getItem('cssd_token')
   if (to.path !== '/login' && !t) return '/login'
+  if (coldStart) {
+    coldStart = false
+    if (t && to.path !== '/login' && to.path !== '/station') {
+      return '/station'
+    }
+  }
 })
 export default router

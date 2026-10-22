@@ -1,7 +1,6 @@
 <template>
   <div class="page">
-    <div class="report-head">工位大厅 · Web 全屏</div>
-    <div class="station-grid" style="margin-top:16px">
+    <div class="station-grid">
       <button class="station-btn" @click="$router.push('/recycle')">回收</button>
       <button class="station-btn" @click="$router.push('/wash')">清洗</button>
       <button class="station-btn" @click="$router.push('/pack')">配包核包</button>

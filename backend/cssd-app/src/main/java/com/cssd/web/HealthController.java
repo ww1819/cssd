@@ -10,6 +10,12 @@ import java.util.Map;
 public class HealthController {
     @GetMapping("/api/health")
     public ApiResult<Map<String, String>> health() {
-        return ApiResult.ok(Map.of("status", "UP"));
+        return ApiResult.ok(Map.of(
+                "status", "UP",
+                "name", "消毒供应追溯系统",
+                "version", "1.0.0",
+                "build", "一期",
+                "backend", "1.0.0-SNAPSHOT"
+        ));
     }
 }

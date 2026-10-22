@@ -6,6 +6,9 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
 import './styles.css'
+import { initTheme } from './theme'
+
+initTheme()
 
 const app = createApp(App)
 app.use(createPinia())
