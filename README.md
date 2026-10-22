@@ -15,6 +15,8 @@
 
 ## 启动
 
+本地开发与整栈部署步骤、端口、环境变量和验收见 [`docs/local-dev.md`](docs/local-dev.md)。
+
 ```bash
 docker compose up --build
 ```
