@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">寄消 / 外来器械 / 一次性</div>
     <el-tabs>
       <el-tab-pane label="寄消">
         <el-button type="primary" @click="loan">清洁区建寄消实例</el-button>

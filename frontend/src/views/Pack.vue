@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">配包 / 核包（双人，检查打包者=核包人）</div>
     <el-form :inline="true" style="margin-top:12px">
       <el-form-item label="模板">
         <el-select v-model="templateId" style="width:240px">

@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <div class="station-grid">
-      <button class="station-btn" @click="$router.push('/recycle')">回收</button>
-      <button class="station-btn" @click="$router.push('/wash')">清洗</button>
+      <button class="station-btn" @click="$router.push({ path: '/recycle', query: { tab: 'regular' } })">回收</button>
+      <button class="station-btn" @click="$router.push({ path: '/wash', query: { tab: 'register' } })">清洗</button>
       <button class="station-btn" @click="$router.push('/pack')">配包核包</button>
       <button class="station-btn" @click="$router.push('/ster')">灭菌放行</button>
       <button class="station-btn" @click="$router.push('/dist')">入库发放</button>

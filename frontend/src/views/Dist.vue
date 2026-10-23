@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">无菌入库 / 按申领发放</div>
     <el-space wrap>
       <el-input v-model="storeBc" placeholder="放行后入库条码" style="width:220px" />
       <el-button type="primary" @click="store">入库</el-button>

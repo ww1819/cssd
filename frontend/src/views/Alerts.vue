@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">过期 / 未回收 / 召回</div>
     <el-tabs>
       <el-tab-pane label="即将过期">
         <el-table :data="alerts.expiring" border><el-table-column prop="barcode" label="条码" /><el-table-column prop="templateName" label="包" /><el-table-column prop="expireDate" label="失效日" /></el-table>

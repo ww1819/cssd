@@ -62,7 +62,7 @@
             :key="sub.tab || sub.path"
             href="javascript:;"
             class="fly-link"
-            :class="{ active: isSubActive(sub) }"
+            :class="{ active: isSubActive(flyMenu, sub) }"
             @click.prevent="goSub(flyMenu, sub)"
           >{{ sub.label }}</a>
         </div>
@@ -312,10 +312,62 @@ const mdTitles = {
   devices: '设备'
 }
 
+const recycleTitles = {
+  regular: '常规回收',
+  manage: '回收管理',
+  'ext-recycle': '外器回收',
+  'ext-bill': '外器单据回收',
+  'ext-manage': '外器管理',
+  'return-reg': '退包登记',
+  'return-manage': '退包管理'
+}
+
+const washTitles = {
+  register: '清洗登记',
+  manage: '清洗登记管理',
+  'machine-end': '清洗机运行结束'
+}
+
+const tabDefaults = { '/md': 'org', '/recycle': 'regular', '/wash': 'register' }
+
 const menus = [
   { path: '/station', label: '工位大厅', icon: Monitor },
-  { path: '/recycle', label: '回收管理', icon: RefreshRight },
-  { path: '/wash', label: '清洗管理', icon: Brush },
+  {
+    path: '/recycle',
+    label: '回收管理',
+    icon: RefreshRight,
+    groups: [
+      {
+        title: '回收业务',
+        icon: RefreshRight,
+        items: [
+          { label: '常规回收', tab: 'regular' },
+          { label: '回收管理', tab: 'manage' },
+          { label: '外器回收', tab: 'ext-recycle' },
+          { label: '外器单据回收', tab: 'ext-bill' },
+          { label: '外器管理', tab: 'ext-manage' },
+          { label: '退包登记', tab: 'return-reg' },
+          { label: '退包管理', tab: 'return-manage' }
+        ]
+      }
+    ]
+  },
+  {
+    path: '/wash',
+    label: '清洗管理',
+    icon: Brush,
+    groups: [
+      {
+        title: '清洗业务',
+        icon: Brush,
+        items: [
+          { label: '清洗登记', tab: 'register' },
+          { label: '清洗登记管理', tab: 'manage' },
+          { label: '清洗机运行结束', tab: 'machine-end' }
+        ]
+      }
+    ]
+  },
   { path: '/pack', label: '包装管理', icon: Box },
   { path: '/ster', label: '发放管理', icon: CircleCheck },
   { path: '/dist', label: '发放/入库', icon: Van },
@@ -375,12 +427,15 @@ const roleMap = { admin: '管理员', nurse_lead: '护士长', operator: '操作
 const roleLabel = computed(() => roleMap[staff.value?.role] || staff.value?.role)
 
 function tabKey(path, query = {}) {
-  if (path === '/md') return `/md?tab=${query.tab || 'org'}`
+  const def = tabDefaults[path]
+  if (def) return `${path}?tab=${query.tab || def}`
   return path
 }
 
 function titleOf(path, query = {}) {
   if (path === '/md') return mdTitles[query.tab || 'org'] || '系统管理'
+  if (path === '/recycle') return recycleTitles[query.tab || 'regular'] || '回收管理'
+  if (path === '/wash') return washTitles[query.tab || 'register'] || '清洗管理'
   const m = menus.find(x => x.path === path)
   return m?.label || path
 }
@@ -401,7 +456,12 @@ watch(
   () => [route.path, route.query.tab],
   () => {
     if (route.path === '/login') return
-    const q = route.path === '/md' ? { tab: route.query.tab || 'org' } : {}
+    const def = tabDefaults[route.path]
+    if (def && !route.query.tab) {
+      router.replace({ path: route.path, query: { tab: def } })
+      return
+    }
+    const q = def ? { tab: route.query.tab || def } : {}
     ensureTab(route.path, q)
   },
   { immediate: true }
@@ -430,11 +490,13 @@ function goHome() {
 }
 
 function isActive(item) {
-  if (item.path === '/md') return route.path === '/md' || route.path.startsWith('/md/')
+  if (item.groups) return route.path === item.path || route.path.startsWith(item.path + '/')
   return route.path === item.path || route.path.startsWith(item.path + '/')
 }
-function isSubActive(sub) {
-  return route.path === '/md' && (route.query.tab || 'org') === sub.tab
+function isSubActive(parent, sub) {
+  if (!parent?.path || !sub?.tab) return false
+  const def = tabDefaults[parent.path] || ''
+  return route.path === parent.path && (route.query.tab || def) === sub.tab
 }
 
 function placeFlyout(el) {

@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">灭菌 / 监测 / 放行（默认等生物，召回不可仅本锅）</div>
     <el-form :inline="true" style="margin-top:12px">
       <el-form-item label="灭菌器">
         <el-select v-model="deviceId" style="width:240px">

@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">扫码 / 输码历程</div>
     <el-input v-model="code" placeholder="包条码或 RFID" style="width:280px;margin:12px 8px 12px 0" @keyup.enter="search" />
     <el-button type="primary" @click="search">查询</el-button>
     <el-descriptions v-if="data?.instance" :column="3" border style="margin-top:12px">

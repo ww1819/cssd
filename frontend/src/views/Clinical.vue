@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <div class="report-head">科室申领 / 术前合患者 / 术后核准</div>
     <el-form :inline="true">
       <el-form-item label="科室">
         <el-select v-model="deptId" style="width:220px">
