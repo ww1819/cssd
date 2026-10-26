@@ -13,6 +13,16 @@ public class CssdStaff extends BaseEntity {
     private String namePinyin;
     private String deptId;
     private String staffRole;
+    /** 年龄 */
+    private Integer age;
+    /** 学历 */
+    private String education;
+    /** 专业 */
+    private String major;
+    /** 职称 */
+    private String jobTitle;
+    /** 能级（层级） */
+    private String energyLevel;
     private Integer isActive;
     private String remark;
 }

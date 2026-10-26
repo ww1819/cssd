@@ -12,6 +12,7 @@ import Trace from './views/Trace.vue'
 import Master from './views/Master.vue'
 import Alerts from './views/Alerts.vue'
 import Bypass from './views/Bypass.vue'
+import Placeholder from './views/Placeholder.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -28,7 +29,14 @@ const router = createRouter({
         { path: 'pack', component: Pack },
         { path: 'ster', component: Ster },
         { path: 'dist', component: Dist },
+        { path: 'adverse', component: Placeholder, meta: { title: '不良事件处理' } },
+        { path: 'cost', component: Placeholder, meta: { title: '成本核算管理' } },
+        { path: 'report', component: Placeholder, meta: { title: '报表统计管理' } },
         { path: 'clinical', component: Clinical },
+        { path: 'dept/item-apply', component: Placeholder, meta: { title: '物品申请' } },
+        { path: 'dept/apply-query', component: Placeholder, meta: { title: '查询申请' } },
+        { path: 'dept/patient', component: Placeholder, meta: { title: '病人查询' } },
+        { path: 'dept/instrument-track', component: Placeholder, meta: { title: '器械追踪' } },
         { path: 'trace', component: Trace },
         { path: 'md', component: Master },
         { path: 'alerts', component: Alerts },

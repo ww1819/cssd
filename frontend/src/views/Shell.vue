@@ -59,7 +59,7 @@
           </div>
           <a
             v-for="sub in group.items"
-            :key="sub.tab || sub.path"
+            :key="(sub.path || '') + ':' + (sub.tab || sub.label)"
             href="javascript:;"
             class="fly-link"
             :class="{ active: isSubActive(flyMenu, sub) }"
@@ -223,7 +223,8 @@ import {
   Monitor, RefreshRight, Brush, Box, CircleCheck, Van,
   OfficeBuilding, FirstAidKit, Search, Bell, Setting,
   Share, Collection, User, HomeFilled, Close, ArrowDown,
-  Fold, Expand, MoreFilled, SwitchButton, Select
+  Fold, Expand, MoreFilled, SwitchButton, Select, FolderOpened,
+  Warning, Coin, DataAnalysis, Key, Tools
 } from '@element-plus/icons-vue'
 import { THEMES, applyTheme, getThemeId } from '../theme'
 
@@ -301,7 +302,8 @@ async function loadAbout() {
 }
 
 const mdTitles = {
-  org: '组织机构',
+  org: '组织机构维护',
+  'org-auth': '组织机构授权',
   campuses: '院区维护',
   warehouses: '仓库维护',
   depts: '科室维护',
@@ -309,7 +311,8 @@ const mdTitles = {
   perms: '权限管理',
   instruments: '器械字典',
   templates: '包模板',
-  devices: '设备'
+  devices: '设备',
+  'sys-config': '系统配置'
 }
 
 const recycleTitles = {
@@ -330,49 +333,82 @@ const washTitles = {
 
 const tabDefaults = { '/md': 'org', '/recycle': 'regular', '/wash': 'register' }
 
+const supplyPaths = ['/recycle', '/wash', '/pack', '/ster', '/bypass']
+const deptPaths = [
+  '/clinical',
+  '/dept/item-apply',
+  '/dept/apply-query',
+  '/dept/patient',
+  '/dept/instrument-track'
+]
+
 const menus = [
   { path: '/station', label: '工位大厅', icon: Monitor },
   {
-    path: '/recycle',
-    label: '回收管理',
-    icon: RefreshRight,
+    path: '/supply',
+    label: '供应中心',
+    icon: FolderOpened,
     groups: [
       {
-        title: '回收业务',
+        title: '回收管理',
         icon: RefreshRight,
         items: [
-          { label: '常规回收', tab: 'regular' },
-          { label: '回收管理', tab: 'manage' },
-          { label: '外器回收', tab: 'ext-recycle' },
-          { label: '外器单据回收', tab: 'ext-bill' },
-          { label: '外器管理', tab: 'ext-manage' },
-          { label: '退包登记', tab: 'return-reg' },
-          { label: '退包管理', tab: 'return-manage' }
+          { label: '常规回收', path: '/recycle', tab: 'regular' },
+          { label: '回收管理', path: '/recycle', tab: 'manage' },
+          { label: '外器回收', path: '/recycle', tab: 'ext-recycle' },
+          { label: '外器单据回收', path: '/recycle', tab: 'ext-bill' },
+          { label: '外器管理', path: '/recycle', tab: 'ext-manage' },
+          { label: '退包登记', path: '/recycle', tab: 'return-reg' },
+          { label: '退包管理', path: '/recycle', tab: 'return-manage' }
         ]
+      },
+      {
+        title: '清洗管理',
+        icon: Brush,
+        items: [
+          { label: '清洗登记', path: '/wash', tab: 'register' },
+          { label: '清洗登记管理', path: '/wash', tab: 'manage' },
+          { label: '清洗机运行结束', path: '/wash', tab: 'machine-end' }
+        ]
+      },
+      {
+        title: '包装管理',
+        icon: Box,
+        items: [{ label: '包装管理', path: '/pack' }]
+      },
+      {
+        title: '发放管理',
+        icon: CircleCheck,
+        items: [{ label: '发放管理', path: '/ster' }]
+      },
+      {
+        title: '无菌管理',
+        icon: FirstAidKit,
+        items: [{ label: '无菌管理', path: '/bypass' }]
       }
     ]
   },
   {
-    path: '/wash',
-    label: '清洗管理',
-    icon: Brush,
+    path: '/dept-mgmt',
+    label: '科室管理',
+    icon: OfficeBuilding,
     groups: [
       {
-        title: '清洗业务',
-        icon: Brush,
+        title: '科室业务',
+        icon: OfficeBuilding,
         items: [
-          { label: '清洗登记', tab: 'register' },
-          { label: '清洗登记管理', tab: 'manage' },
-          { label: '清洗机运行结束', tab: 'machine-end' }
+          { label: '科室申领与使用', path: '/clinical' },
+          { label: '物品申请', path: '/dept/item-apply' },
+          { label: '查询申请', path: '/dept/apply-query' },
+          { label: '病人查询', path: '/dept/patient' },
+          { label: '器械追踪', path: '/dept/instrument-track' }
         ]
       }
     ]
   },
-  { path: '/pack', label: '包装管理', icon: Box },
-  { path: '/ster', label: '发放管理', icon: CircleCheck },
-  { path: '/dist', label: '发放/入库', icon: Van },
-  { path: '/clinical', label: '科室申领与使用', icon: OfficeBuilding },
-  { path: '/bypass', label: '无菌管理', icon: FirstAidKit },
+  { path: '/adverse', label: '不良事件处理', icon: Warning },
+  { path: '/cost', label: '成本核算管理', icon: Coin },
+  { path: '/report', label: '报表统计管理', icon: DataAnalysis },
   { path: '/trace', label: '追溯查询', icon: Search },
   { path: '/alerts', label: '告警与召回', icon: Bell },
   {
@@ -381,10 +417,17 @@ const menus = [
     icon: Setting,
     groups: [
       {
+        title: '机构管理',
+        icon: Key,
+        items: [
+          { label: '组织机构维护', tab: 'org' },
+          { label: '组织机构授权', tab: 'org-auth' }
+        ]
+      },
+      {
         title: '组织基础',
         icon: Share,
         items: [
-          { label: '组织机构', tab: 'org' },
           { label: '院区维护', tab: 'campuses' },
           { label: '仓库维护', tab: 'warehouses' },
           { label: '科室维护', tab: 'depts' }
@@ -405,6 +448,13 @@ const menus = [
           { label: '器械字典', tab: 'instruments' },
           { label: '包模板', tab: 'templates' },
           { label: '设备', tab: 'devices' }
+        ]
+      },
+      {
+        title: '系统配置',
+        icon: Tools,
+        items: [
+          { label: '系统配置', tab: 'sys-config' }
         ]
       }
     ]
@@ -432,12 +482,29 @@ function tabKey(path, query = {}) {
   return path
 }
 
+const pathTitles = {
+  '/station': '工位大厅',
+  '/pack': '包装管理',
+  '/ster': '发放管理',
+  '/dist': '入库发放',
+  '/adverse': '不良事件处理',
+  '/cost': '成本核算管理',
+  '/report': '报表统计管理',
+  '/clinical': '科室申领与使用',
+  '/dept/item-apply': '物品申请',
+  '/dept/apply-query': '查询申请',
+  '/dept/patient': '病人查询',
+  '/dept/instrument-track': '器械追踪',
+  '/bypass': '无菌管理',
+  '/trace': '追溯查询',
+  '/alerts': '告警与召回'
+}
+
 function titleOf(path, query = {}) {
   if (path === '/md') return mdTitles[query.tab || 'org'] || '系统管理'
   if (path === '/recycle') return recycleTitles[query.tab || 'regular'] || '回收管理'
   if (path === '/wash') return washTitles[query.tab || 'register'] || '清洗管理'
-  const m = menus.find(x => x.path === path)
-  return m?.label || path
+  return pathTitles[path] || menus.find(x => x.path === path)?.label || path
 }
 
 function ensureTab(path, query = {}) {
@@ -490,13 +557,19 @@ function goHome() {
 }
 
 function isActive(item) {
+  if (item.path === '/supply') return supplyPaths.includes(route.path)
+  if (item.path === '/dept-mgmt') return deptPaths.includes(route.path)
   if (item.groups) return route.path === item.path || route.path.startsWith(item.path + '/')
   return route.path === item.path || route.path.startsWith(item.path + '/')
 }
 function isSubActive(parent, sub) {
-  if (!parent?.path || !sub?.tab) return false
-  const def = tabDefaults[parent.path] || ''
-  return route.path === parent.path && (route.query.tab || def) === sub.tab
+  const path = sub.path || parent?.path
+  if (!path || route.path !== path) return false
+  if (sub.tab) {
+    const def = tabDefaults[path] || ''
+    return (route.query.tab || def) === sub.tab
+  }
+  return true
 }
 
 function placeFlyout(el) {
@@ -532,7 +605,13 @@ function onLeave() {
 function onClickMain(item) {
   if (item.groups) {
     const first = item.groups[0]?.items?.[0]
-    router.push(first ? { path: item.path, query: { tab: first.tab } } : item.path)
+    if (first) {
+      const path = first.path || item.path
+      const query = first.tab ? { tab: first.tab } : {}
+      router.push({ path, query })
+      return
+    }
+    if (item.path !== '/supply') router.push(item.path)
     return
   }
   router.push(item.path)
@@ -540,7 +619,9 @@ function onClickMain(item) {
 
 function goSub(parent, sub) {
   flyKey.value = null
-  router.push({ path: parent.path, query: { tab: sub.tab } })
+  const path = sub.path || parent.path
+  const query = sub.tab ? { tab: sub.tab } : {}
+  router.push({ path, query })
 }
 
 function onUserCommand(cmd) {
@@ -558,7 +639,11 @@ function logout() {
 </script>
 <style scoped>
 .shell { height: 100%; }
-.work { min-width: 0; }
+.work {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
 
 .aside {
   position: relative;
@@ -943,6 +1028,10 @@ function logout() {
 }
 
 .main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   background: #fff;
   padding: 0;
 }
@@ -955,7 +1044,8 @@ function logout() {
   display: flex;
   gap: 28px;
   min-width: 420px;
-  max-width: 720px;
+  max-width: 960px;
+  flex-wrap: wrap;
   padding: 20px 24px 22px;
   background: #fff;
   border-radius: 12px;
