@@ -35,6 +35,9 @@ public class JwtService {
                 .claim("name", user.getStaffName())
                 .claim("role", user.getRole())
                 .claim("deptId", user.getDeptId())
+                .claim("orgId", user.getOrgId())
+                .claim("orgCode", user.getOrgCode())
+                .claim("userType", user.getUserType())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(expireHours, ChronoUnit.HOURS)))
                 .signWith(key)
@@ -48,7 +51,10 @@ public class JwtService {
                 claims.get("no", String.class),
                 claims.get("name", String.class),
                 claims.get("role", String.class),
-                claims.get("deptId", String.class)
+                claims.get("deptId", String.class),
+                claims.get("orgId", String.class),
+                claims.get("orgCode", String.class),
+                claims.get("userType", String.class)
         );
     }
 }

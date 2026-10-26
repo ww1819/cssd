@@ -276,6 +276,21 @@
 
 落地映射：MEIS [PLT-REF-CODE-01](meis-requirements.md#plt-ref-code-01-强业务外键显示编码名称定稿2026-08-01)、附录 H；`refSelectConfig.showCode`、`formatRefRowLabel`、`useRefLabelMap`。
 
+### 5.2.2 组织机构数据隔离（强制 · CSSD）
+
+本系统按**组织机构**（`cssd_campus`，且行上 `org_id` 为空）做多机构隔离。后续**所有新建菜单/业务功能**必须遵守：
+
+| 项 | 要求 |
+|----|------|
+| **表字段** | 业务表必须有 `org_id`（varchar(36)，所属组织机构 id）；建议冗余 `org_code`（机构编码）便于排查 |
+| **写入** | 机构账号登录后新增/修改：服务端用 `OrgScope.currentOrgId()` **强制写入**本机构 id，禁止信任前端随意传他机构 id |
+| **查询** | 列表/详情/导出：机构账号**只查本机构**；平台账号（无 `orgId`，如 `ADMIN`）可查全部 |
+| **登录上下文** | JWT / `LoginUser` 带 `orgId`、`orgCode`；机构初始化账号 `cssd_{编码}` 与机构编码对应 |
+| **前端** | 侧栏菜单继续走授权树；数据层再按 `orgId` 过滤；本地暂存（如仓库/岗位）键名按机构分库 |
+| **禁止** | 新功能不做 `org_id`；跨机构串数据；仅前端过滤而无服务端过滤 |
+
+落地入口：`com.cssd.security.OrgScope`；主数据参考 `MdController` 中 campuses / areas / staffs / depts 的隔离写法。
+
 ### 5.3 API 与前端 ID
 
 - JSON 中的 UUID **字符串化**输出，避免前端精度/类型问题。  

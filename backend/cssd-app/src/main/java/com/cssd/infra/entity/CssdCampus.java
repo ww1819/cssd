@@ -10,6 +10,8 @@ import lombok.EqualsAndHashCode;
 public class CssdCampus extends BaseEntity {
     private String campusCode;
     private String campusName;
+    /** 所属组织机构 id（空=组织机构本身；有值=院区） */
+    private String orgId;
     /** 机构代码 */
     private String orgCode;
     /** 社会统一信用代码 */
@@ -20,4 +22,6 @@ public class CssdCampus extends BaseEntity {
     private String namePinyin;
     private Integer isActive;
     private String remark;
+    /** 机构菜单授权 JSON 数组 */
+    private String menuAuth;
 }

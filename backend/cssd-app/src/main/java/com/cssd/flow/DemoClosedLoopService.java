@@ -126,8 +126,11 @@ public class DemoClosedLoopService {
     }
 
     private void as(String no, String name, String role, String id) {
-        LoginUser user = new LoginUser(id, no, name, role,
-                "20000000-0000-7000-8000-000000000011".equals(id) ? null : "10000000-0000-7000-8000-000000000011");
+        String deptId = "20000000-0000-7000-8000-000000000011".equals(id) ? null
+                : "10000000-0000-7000-8000-000000000011";
+        // demo 闭环：平台级上下文（org 为空），科室在下方按角色覆盖
+        LoginUser user = new LoginUser(id, no, name, role, deptId, null, null,
+                "ADMIN".equalsIgnoreCase(no) ? "admin" : "normal");
         if ("CL001".equals(no) || "SG001".equals(no)) {
             user.setDeptId(DEPT_OR);
         }

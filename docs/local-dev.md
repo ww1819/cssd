@@ -11,7 +11,7 @@
 | 组件 | 版本 | 用途 |
 |------|------|------|
 | Docker Desktop（Compose V2） | 当前稳定版 | Postgres / Redis / RabbitMQ，方式 A 还负责前后端 |
-| JDK | 17 | 方式 B 编译运行后端。`scripts/start-backend.ps1` 固定使用 `C:\Program Files\Java\jdk-17` |
+| JDK | 17 | 方式 B 编译运行后端。`scripts/start-backend.ps1` 优先 `CSSD_JAVA_HOME`，否则 `D:\` / `C:\Program Files\Java\jdk-17` |
 | Maven | 3.9+ | 方式 B。容器内构建使用 Maven 3.9.9 |
 | Node.js | 20 | 方式 B 前端。容器构建镜像为 `node:20-alpine` |
 
@@ -139,18 +139,18 @@ cd cssd
 .\scripts\start-backend.ps1
 ```
 
-脚本会把 `JAVA_HOME` 设为 `C:\Program Files\Java\jdk-17` 并执行：
+脚本会自动选用可用的 JDK 17（`CSSD_JAVA_HOME` → `D:\Program Files\Java\jdk-17` → `C:\Program Files\Java\jdk-17`）并执行：
 
 ```powershell
-mvn -DskipTests spring-boot:run -pl cssd-app -am
+mvn -DskipTests install -pl cssd-app -am
+mvn -DskipTests spring-boot:run -pl cssd-app
 ```
 
-JDK 在其他目录时不要用该脚本，在 `cssd/backend` 下自行指定后启动：
+JDK 在其他目录时：
 
 ```powershell
-$env:JAVA_HOME = 'D:\path\to\jdk-17'
-$env:Path = "$env:JAVA_HOME\bin;" + $env:Path
-mvn -DskipTests spring-boot:run -pl cssd-app -am
+$env:CSSD_JAVA_HOME = 'D:\path\to\jdk-17'
+.\scripts\start-backend.ps1
 ```
 
 IDE 运行主类 `com.cssd.CssdApplication`，工作目录可用 `cssd/backend`，JDK 17。默认连 `localhost:5432`，用户密码 `cssd` / `cssd`。
@@ -244,7 +244,7 @@ curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/
 改 `docker-compose.yml` 左侧宿主机端口，例如前端 `"8088:80"`、后端 `"18080:8080"`。方式 B 的 Vite 端口在 `frontend/vite.config.js` 的 `server.port`（默认 5173），代理目标保持 `http://localhost:8080`，若后端改了宿主机端口，这里要一起改。
 
 **`start-backend.ps1` 找不到 java**  
-脚本写死了 `C:\Program Files\Java\jdk-17`。JDK 不在该路径时按 4.2 自行设置 `JAVA_HOME` 后执行 Maven，不要改用 JDK 8 或 21。
+设置 `$env:CSSD_JAVA_HOME` 指向本机 JDK 17 根目录后再跑脚本；不要改用 JDK 8。Maven 若仍指向 JDK 8，会出现「无效的目标发行版: 17」。
 
 **改了后端代码，浏览器仍是旧接口**  
 方式 B 重启 `spring-boot:run`。方式 A 执行 `docker compose up --build -d backend`。前端静态资源同理，方式 A 需重建 `frontend`。

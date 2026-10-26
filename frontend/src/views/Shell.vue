@@ -79,6 +79,25 @@
         >
           <el-icon :size="18"><Fold v-if="!asideCollapsed" /><Expand v-else /></el-icon>
         </button>
+        <div class="hdr-org-unit">
+          <span class="hdr-org-label">机构单位:</span>
+          <el-select
+            :model-value="selectedOrgId"
+            filterable
+            :clearable="isPlatformAdmin"
+            :disabled="!isPlatformAdmin"
+            placeholder="全部机构"
+            class="hdr-org-select"
+            @update:model-value="onHdrOrgChange"
+          >
+            <el-option
+              v-for="o in orgOptions"
+              :key="o.id"
+              :label="`${o.campusCode}|${o.campusName}`"
+              :value="o.id"
+            />
+          </el-select>
+        </div>
         <div class="hdr-spacer" />
         <div class="hdr-user">
           <el-dropdown trigger="click" placement="bottom-end" @command="onUserCommand">
@@ -216,9 +235,16 @@
   </el-container>
 </template>
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import {
+  initOrgContext,
+  isPlatformAdmin,
+  orgOptions,
+  selectedOrgId,
+  setSelectedOrgId
+} from '../orgContext'
 import {
   Monitor, RefreshRight, Brush, Box, CircleCheck, Van,
   OfficeBuilding, FirstAidKit, Search, Bell, Setting,
@@ -270,6 +296,12 @@ function toggleAside() {
   localStorage.setItem('cssd_aside_collapsed', asideCollapsed.value ? '1' : '0')
   flyKey.value = null
 }
+function onHdrOrgChange(id) {
+  setSelectedOrgId(id)
+}
+onMounted(() => {
+  initOrgContext()
+})
 
 const FE_VERSION = '1.0.0'
 const about = ref({
@@ -303,7 +335,6 @@ async function loadAbout() {
 
 const mdTitles = {
   org: '组织机构维护',
-  'org-auth': '组织机构授权',
   campuses: '院区维护',
   warehouses: '仓库维护',
   depts: '科室维护',
@@ -342,49 +373,55 @@ const deptPaths = [
   '/dept/instrument-track'
 ]
 
-const menus = [
-  { path: '/station', label: '工位大厅', icon: Monitor },
+const allMenus = [
+  { path: '/station', label: '工位大厅', icon: Monitor, authId: 'station' },
   {
     path: '/supply',
     label: '供应中心',
     icon: FolderOpened,
+    authId: 'supply',
     groups: [
       {
         title: '回收管理',
         icon: RefreshRight,
+        authId: 'recycle',
         items: [
-          { label: '常规回收', path: '/recycle', tab: 'regular' },
-          { label: '回收管理', path: '/recycle', tab: 'manage' },
-          { label: '外器回收', path: '/recycle', tab: 'ext-recycle' },
-          { label: '外器单据回收', path: '/recycle', tab: 'ext-bill' },
-          { label: '外器管理', path: '/recycle', tab: 'ext-manage' },
-          { label: '退包登记', path: '/recycle', tab: 'return-reg' },
-          { label: '退包管理', path: '/recycle', tab: 'return-manage' }
+          { label: '常规回收', path: '/recycle', tab: 'regular', authId: 'recycle-regular' },
+          { label: '回收管理', path: '/recycle', tab: 'manage', authId: 'recycle-manage' },
+          { label: '外器回收', path: '/recycle', tab: 'ext-recycle', authId: 'recycle-ext-recycle' },
+          { label: '外器单据回收', path: '/recycle', tab: 'ext-bill', authId: 'recycle-ext-bill' },
+          { label: '外器管理', path: '/recycle', tab: 'ext-manage', authId: 'recycle-ext-manage' },
+          { label: '退包登记', path: '/recycle', tab: 'return-reg', authId: 'recycle-return-reg' },
+          { label: '退包管理', path: '/recycle', tab: 'return-manage', authId: 'recycle-return-manage' }
         ]
       },
       {
         title: '清洗管理',
         icon: Brush,
+        authId: 'wash',
         items: [
-          { label: '清洗登记', path: '/wash', tab: 'register' },
-          { label: '清洗登记管理', path: '/wash', tab: 'manage' },
-          { label: '清洗机运行结束', path: '/wash', tab: 'machine-end' }
+          { label: '清洗登记', path: '/wash', tab: 'register', authId: 'wash-register' },
+          { label: '清洗登记管理', path: '/wash', tab: 'manage', authId: 'wash-manage' },
+          { label: '清洗机运行结束', path: '/wash', tab: 'machine-end', authId: 'wash-machine-end' }
         ]
       },
       {
         title: '包装管理',
         icon: Box,
-        items: [{ label: '包装管理', path: '/pack' }]
+        authId: 'pack',
+        items: [{ label: '包装管理', path: '/pack', authId: 'pack' }]
       },
       {
         title: '发放管理',
         icon: CircleCheck,
-        items: [{ label: '发放管理', path: '/ster' }]
+        authId: 'ster',
+        items: [{ label: '发放管理', path: '/ster', authId: 'ster' }]
       },
       {
         title: '无菌管理',
         icon: FirstAidKit,
-        items: [{ label: '无菌管理', path: '/bypass' }]
+        authId: 'bypass',
+        items: [{ label: '无菌管理', path: '/bypass', authId: 'bypass' }]
       }
     ]
   },
@@ -392,95 +429,148 @@ const menus = [
     path: '/dept-mgmt',
     label: '科室管理',
     icon: OfficeBuilding,
+    authId: 'dept-mgmt',
     groups: [
       {
         title: '科室业务',
         icon: OfficeBuilding,
         items: [
-          { label: '科室申领与使用', path: '/clinical' },
-          { label: '物品申请', path: '/dept/item-apply' },
-          { label: '查询申请', path: '/dept/apply-query' },
-          { label: '病人查询', path: '/dept/patient' },
-          { label: '器械追踪', path: '/dept/instrument-track' }
+          { label: '科室申领与使用', path: '/clinical', authId: 'clinical' },
+          { label: '物品申请', path: '/dept/item-apply', authId: 'dept-item-apply' },
+          { label: '查询申请', path: '/dept/apply-query', authId: 'dept-apply-query' },
+          { label: '病人查询', path: '/dept/patient', authId: 'dept-patient' },
+          { label: '器械追踪', path: '/dept/instrument-track', authId: 'dept-instrument-track' }
         ]
       }
     ]
   },
-  { path: '/adverse', label: '不良事件处理', icon: Warning },
-  { path: '/cost', label: '成本核算管理', icon: Coin },
-  { path: '/report', label: '报表统计管理', icon: DataAnalysis },
-  { path: '/trace', label: '追溯查询', icon: Search },
-  { path: '/alerts', label: '告警与召回', icon: Bell },
+  { path: '/adverse', label: '不良事件处理', icon: Warning, authId: 'adverse' },
+  { path: '/cost', label: '成本核算管理', icon: Coin, authId: 'cost' },
+  { path: '/report', label: '报表统计管理', icon: DataAnalysis, authId: 'report' },
+  { path: '/trace', label: '追溯查询', icon: Search, authId: 'trace' },
+  { path: '/alerts', label: '告警与召回', icon: Bell, authId: 'alerts' },
   {
     path: '/md',
     label: '系统管理',
     icon: Setting,
+    authId: 'md',
     groups: [
       {
         title: '机构管理',
         icon: Key,
         items: [
-          { label: '组织机构维护', tab: 'org' },
-          { label: '组织机构授权', tab: 'org-auth' }
+          { label: '组织机构维护', tab: 'org', authId: 'md-org' }
         ]
       },
       {
         title: '组织基础',
         icon: Share,
         items: [
-          { label: '院区维护', tab: 'campuses' },
-          { label: '仓库维护', tab: 'warehouses' },
-          { label: '科室维护', tab: 'depts' }
+          { label: '院区维护', tab: 'campuses', authId: 'md-campuses' },
+          { label: '仓库维护', tab: 'warehouses', authId: 'md-warehouses' },
+          { label: '科室维护', tab: 'depts', authId: 'md-depts' }
         ]
       },
       {
         title: '人员权限',
         icon: User,
         items: [
-          { label: '人员档案', tab: 'staffs' },
-          { label: '权限管理', tab: 'perms' }
+          { label: '人员档案', tab: 'staffs', authId: 'md-staffs' },
+          { label: '权限管理', tab: 'perms', authId: 'md-perms' }
         ]
       },
       {
         title: '业务字典',
         icon: Collection,
         items: [
-          { label: '器械字典', tab: 'instruments' },
-          { label: '包模板', tab: 'templates' },
-          { label: '设备', tab: 'devices' }
+          { label: '器械字典', tab: 'instruments', authId: 'md-instruments' },
+          { label: '包模板', tab: 'templates', authId: 'md-templates' },
+          { label: '设备', tab: 'devices', authId: 'md-devices' }
         ]
       },
       {
         title: '系统配置',
         icon: Tools,
         items: [
-          { label: '系统配置', tab: 'sys-config' }
+          { label: '系统配置', tab: 'sys-config', authId: 'md-sys-config' }
         ]
       }
     ]
   }
 ]
 
-const flyKey = ref(null)
-const flyStyle = ref({})
-let leaveTimer = null
-
-const openTabs = ref([{ key: '/station', path: '/station', query: {}, title: '工位大厅' }])
-const activeKey = ref('/station')
-
-const flyMenu = computed(() => menus.find(m => m.path === flyKey.value && m.groups) || null)
-
-const staff = computed(() => {
-  try { return JSON.parse(localStorage.getItem('cssd_staff') || 'null') } catch { return null }
-})
-const roleMap = { admin: '管理员', nurse_lead: '护士长', operator: '操作员', qc: '质检员', delivery: '下送', clinical: '临床', surgeon: '术者' }
-const roleLabel = computed(() => roleMap[staff.value?.role] || staff.value?.role)
+/** null = 不限制；Set = 仅这些授权键可见 */
+function readMenuAuthSet() {
+  try {
+    const raw = localStorage.getItem('cssd_menu_auth')
+    if (!raw) return null
+    const list = JSON.parse(raw)
+    if (!Array.isArray(list)) return null
+    return new Set(list)
+  } catch {
+    return null
+  }
+}
 
 function tabKey(path, query = {}) {
   const def = tabDefaults[path]
   if (def) return `${path}?tab=${query.tab || def}`
   return path
 }
+
+/** 按登录账号绑定的菜单授权过滤侧栏；无授权数据则显示全部（演示账号） */
+const menus = computed(() => {
+  const set = readMenuAuthSet()
+  if (!set) return allMenus
+  return allMenus
+    .map((item) => {
+      if (!item.groups) {
+        return set.has(item.authId) ? item : null
+      }
+      const groups = (item.groups || [])
+        .map((g) => {
+          const explicit = (g.items || []).filter((sub) => set.has(sub.authId))
+          if (explicit.length) return { ...g, items: explicit }
+          if (set.has(item.authId) || (g.authId && set.has(g.authId))) {
+            return { ...g, items: g.items || [] }
+          }
+          return null
+        })
+        .filter(Boolean)
+      return groups.length ? { ...item, groups } : null
+    })
+    .filter(Boolean)
+})
+
+const flyKey = ref(null)
+const flyStyle = ref({})
+let leaveTimer = null
+
+function defaultHomeTab() {
+  const list = menus.value
+  const first = list[0]
+  if (!first) return { key: '/station', path: '/station', query: {}, title: '工位大厅' }
+  if (first.groups?.length) {
+    const sub = first.groups[0]?.items?.[0]
+    if (sub) {
+      const path = sub.path || first.path
+      const query = sub.tab ? { tab: sub.tab } : {}
+      return { key: tabKey(path, query), path, query, title: sub.label || first.label }
+    }
+  }
+  return { key: first.path, path: first.path, query: {}, title: first.label }
+}
+
+const openTabs = ref([defaultHomeTab()])
+const activeKey = ref(openTabs.value[0]?.key || '/station')
+
+const flyMenu = computed(() => menus.value.find(m => m.path === flyKey.value && m.groups) || null)
+
+const staff = computed(() => {
+  try { return JSON.parse(localStorage.getItem('cssd_staff') || 'null') } catch { return null }
+})
+const roleMap = { admin: '管理员', nurse_lead: '护士长', operator: '操作员', qc: '质检员', delivery: '下送', clinical: '临床', surgeon: '术者' }
+const roleLabel = computed(() => roleMap[staff.value?.role] || staff.value?.role)
 
 const pathTitles = {
   '/station': '工位大厅',
@@ -504,7 +594,7 @@ function titleOf(path, query = {}) {
   if (path === '/md') return mdTitles[query.tab || 'org'] || '系统管理'
   if (path === '/recycle') return recycleTitles[query.tab || 'regular'] || '回收管理'
   if (path === '/wash') return washTitles[query.tab || 'register'] || '清洗管理'
-  return pathTitles[path] || menus.find(x => x.path === path)?.label || path
+  return pathTitles[path] || menus.value.find(x => x.path === path)?.label || path
 }
 
 function ensureTab(path, query = {}) {
@@ -543,8 +633,9 @@ function closeTab(t) {
   const wasActive = activeKey.value === t.key
   openTabs.value.splice(idx, 1)
   if (!openTabs.value.length) {
-    ensureTab('/station')
-    router.push('/station')
+    const home = defaultHomeTab()
+    ensureTab(home.path, home.query)
+    router.push({ path: home.path, query: home.query })
     return
   }
   if (wasActive) {
@@ -589,7 +680,7 @@ function onEnter(item) {
   flyKey.value = item.path
   nextTick(() => {
     const rows = document.querySelectorAll('.nav-row')
-    const idx = menus.findIndex(m => m.path === item.path)
+    const idx = menus.value.findIndex(m => m.path === item.path)
     const row = rows[idx]
     if (row) placeFlyout(row)
   })
@@ -796,6 +887,26 @@ function logout() {
 .aside-toggle:hover {
   background: var(--brand-soft);
   color: var(--brand);
+}
+.hdr-org-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: 8px;
+  flex-shrink: 1;
+}
+.hdr-org-label {
+  font-size: 13px;
+  color: #5a7380;
+  white-space: nowrap;
+}
+.hdr-org-select {
+  width: 240px;
+  max-width: min(280px, 42vw);
+}
+.hdr-org-select :deep(.el-select__wrapper) {
+  min-height: 32px;
 }
 .hdr-spacer { flex: 1; }
 .hdr-user {

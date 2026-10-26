@@ -25,11 +25,39 @@ async function go() {
   loading.value = true
   try {
     const res = await http.post('/auth/login', { staffNo: staffNo.value, password: password.value })
+    const staff = { ...(res.data.staff || {}) }
+    // 平台 admin 不带机构；机构账号 cssd_01 → 绑定机构编码 01
+    if (String(staff.staffNo || '').toLowerCase() === 'admin') {
+      delete staff.orgId
+      delete staff.orgCode
+    } else if (!staff.orgId && !staff.orgCode && staff.staffNo) {
+      const m = String(staff.staffNo).match(/^cssd_(\d+)$/i)
+      if (m) staff.orgCode = m[1]
+    }
     localStorage.setItem('cssd_token', res.data.token)
-    localStorage.setItem('cssd_staff', JSON.stringify(res.data.staff))
-    localStorage.setItem('cssd_menus', JSON.stringify(res.data.menus))
+    localStorage.setItem('cssd_staff', JSON.stringify(staff))
+    localStorage.setItem('cssd_menus', JSON.stringify(res.data.menus || []))
+    const menuAuth = res.data.menuAuth
+    if (Array.isArray(menuAuth)) {
+      localStorage.setItem('cssd_menu_auth', JSON.stringify(menuAuth))
+    } else {
+      localStorage.removeItem('cssd_menu_auth')
+    }
     ElMessage.success('登录成功')
-    router.push('/station')
+    // 有菜单授权时进入首个可见页，否则进工位大厅
+    let home = '/station'
+    if (Array.isArray(menuAuth) && menuAuth.length) {
+      if (menuAuth.includes('station')) home = '/station'
+      else if (menuAuth.includes('md') || menuAuth.some((k) => String(k).startsWith('md-'))) home = '/md'
+      else if (menuAuth.includes('supply') || menuAuth.some((k) => ['recycle', 'wash', 'pack', 'ster', 'bypass'].some((p) => String(k).startsWith(p)))) home = '/recycle'
+      else if (menuAuth.includes('dept-mgmt') || menuAuth.includes('clinical')) home = '/clinical'
+      else if (menuAuth.includes('trace')) home = '/trace'
+      else if (menuAuth.includes('alerts')) home = '/alerts'
+      else if (menuAuth.includes('adverse')) home = '/adverse'
+      else if (menuAuth.includes('cost')) home = '/cost'
+      else if (menuAuth.includes('report')) home = '/report'
+    }
+    router.push(home)
   } finally {
     loading.value = false
   }

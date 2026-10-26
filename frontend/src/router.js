@@ -45,15 +45,34 @@ const router = createRouter({
     }
   ]
 })
-/** 浏览器刷新 / 冷启动时回到工位大厅；应用内点击菜单仍可正常跳转 */
+/** 浏览器刷新 / 冷启动时回到首个可见页；应用内点击菜单仍可正常跳转 */
 let coldStart = true
+function coldStartHome() {
+  try {
+    const raw = localStorage.getItem('cssd_menu_auth')
+    const list = raw ? JSON.parse(raw) : null
+    if (Array.isArray(list) && list.length) {
+      if (list.includes('station')) return '/station'
+      if (list.includes('md') || list.some((k) => String(k).startsWith('md-'))) return '/md'
+      if (list.includes('trace')) return '/trace'
+      if (list.includes('alerts')) return '/alerts'
+      if (list.includes('clinical') || list.includes('dept-mgmt')) return '/clinical'
+      if (list.includes('adverse')) return '/adverse'
+      if (list.includes('cost')) return '/cost'
+      if (list.includes('report')) return '/report'
+      return '/md'
+    }
+  } catch { /* ignore */ }
+  return '/station'
+}
 router.beforeEach((to) => {
   const t = localStorage.getItem('cssd_token')
   if (to.path !== '/login' && !t) return '/login'
   if (coldStart) {
     coldStart = false
-    if (t && to.path !== '/login' && to.path !== '/station') {
-      return '/station'
+    const home = coldStartHome()
+    if (t && to.path !== '/login' && to.path !== home) {
+      return home
     }
   }
 })
