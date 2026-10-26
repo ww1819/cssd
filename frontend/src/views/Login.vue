@@ -44,7 +44,7 @@ async function go() {
       localStorage.removeItem('cssd_menu_auth')
     }
     ElMessage.success('登录成功')
-    // 有菜单授权时进入首个可见页，否则进工位大厅
+    // 有菜单授权时进入首个可见页，否则进首页
     let home = '/station'
     if (Array.isArray(menuAuth) && menuAuth.length) {
       if (menuAuth.includes('station')) home = '/station'

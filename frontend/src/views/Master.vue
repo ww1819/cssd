@@ -234,24 +234,39 @@
               <el-button type="primary" plain :icon="Document">选择文件</el-button>
             </el-upload>
             <el-button type="primary" plain :icon="Search" :disabled="!staffImportFile" @click="parseStaffImportFile">解析</el-button>
-            <el-button type="success" :icon="Upload" :loading="staffImportSaving" :disabled="!staffImportRows.length" @click="submitStaffImport">导入</el-button>
+            <el-button type="success" :icon="Upload" :loading="staffImportSaving" :disabled="!staffImportRows.length || staffImportSaving" @click="submitStaffImport">导入</el-button>
             <span v-if="staffImportFileName" class="staff-import-file">{{ staffImportFileName }}</span>
+          </div>
+          <div v-if="staffImportSaving" class="staff-import-progress">
+            <el-progress
+              :percentage="staffImportProgress"
+              :stroke-width="14"
+              striped
+              striped-flow
+              status="success"
+            />
+            <div class="staff-import-progress-text">正在导入 {{ staffImportDone }}/{{ staffImportTotal }}…</div>
           </div>
           <el-table :data="staffImportRows" border height="320" class="md-table" empty-text="请先选择文件并点击解析">
             <el-table-column type="index" label="序号" width="56" />
             <el-table-column prop="staffNo" label="工号" min-width="100" show-overflow-tooltip />
             <el-table-column prop="staffName" label="姓名" min-width="100" show-overflow-tooltip />
-            <el-table-column prop="staffRole" label="岗位编码" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="roleName" label="岗位名称" min-width="100" show-overflow-tooltip />
             <el-table-column prop="password" label="密码" min-width="90" show-overflow-tooltip />
             <el-table-column prop="contactName" label="联系人" min-width="90" show-overflow-tooltip />
             <el-table-column prop="contactPhone" label="联系电话" min-width="110" show-overflow-tooltip />
-            <el-table-column prop="deptCode" label="科室编码" min-width="100" show-overflow-tooltip />
-            <el-table-column prop="userType" label="用户类型" width="90" show-overflow-tooltip />
-            <el-table-column prop="error" label="校验" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="deptName" label="科室名称" min-width="120" show-overflow-tooltip />
+            <el-table-column label="校验" min-width="140" fixed="right" align="center" header-align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :class="row.error ? 'staff-import-fail' : 'staff-import-ok'">
+                  {{ row.error || '通过' }}
+                </span>
+              </template>
+            </el-table-column>
           </el-table>
           <template #footer>
             <div class="auth-footer">
-              <el-button @click="staffImportVisible = false">关闭</el-button>
+              <el-button :disabled="staffImportSaving" @click="staffImportVisible = false">关闭</el-button>
             </div>
           </template>
         </el-dialog>
@@ -274,8 +289,13 @@
               <el-button type="danger" size="small" @click="staffDrawerVisible = false">关闭</el-button>
             </div>
           </template>
+          <el-tabs v-model="staffFormTab" class="staff-form-tabs">
+            <el-tab-pane label="基础信息" name="basic" />
+            <el-tab-pane label="资质信息" name="qualify" />
+            <el-tab-pane label="培训记录" name="train" />
+          </el-tabs>
           <el-form ref="staffFormRef" class="staff-form-grid" :model="staffForm" :rules="staffRules" label-width="108px">
-            <el-row :gutter="12">
+            <el-row v-show="staffFormTab === 'basic'" :gutter="12">
               <el-col :span="12">
                 <el-form-item label="组织机构" prop="orgId">
                   <el-select
@@ -340,38 +360,6 @@
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item label="年龄" prop="age">
-                  <el-input-number
-                    v-model="staffForm.age"
-                    :min="1"
-                    :max="120"
-                    controls-position="right"
-                    placeholder="选填"
-                    style="width: 100%"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="学历" prop="education">
-                  <el-input v-model="staffForm.education" maxlength="64" placeholder="选填" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="专业" prop="major">
-                  <el-input v-model="staffForm.major" maxlength="64" placeholder="选填" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="职称" prop="jobTitle">
-                  <el-input v-model="staffForm.jobTitle" maxlength="64" placeholder="选填" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="能级（层级）" prop="energyLevel">
-                  <el-input v-model="staffForm.energyLevel" maxlength="64" placeholder="选填" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
                 <el-form-item label="联系人" prop="contactName">
                   <el-input v-model="staffForm.contactName" maxlength="64" placeholder="选填" />
                 </el-form-item>
@@ -420,6 +408,50 @@
                 </el-form-item>
               </el-col>
             </el-row>
+            <el-row v-show="staffFormTab === 'qualify'" :gutter="12">
+              <el-col :span="12">
+                <el-form-item label="年龄" prop="age">
+                  <el-input-number
+                    v-model="staffForm.age"
+                    :min="1"
+                    :max="120"
+                    controls-position="right"
+                    placeholder="选填"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="学历" prop="education">
+                  <el-input v-model="staffForm.education" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="专业" prop="major">
+                  <el-input v-model="staffForm.major" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="职称" prop="jobTitle">
+                  <el-input v-model="staffForm.jobTitle" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="能级（层级）" prop="energyLevel">
+                  <el-input v-model="staffForm.energyLevel" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <div v-show="staffFormTab === 'train'" class="staff-train-pane">
+              <el-table :data="staffTrainRows" border size="small" empty-text="暂无培训记录" class="md-table">
+                <el-table-column type="index" label="序号" width="56" />
+                <el-table-column prop="trainName" label="培训名称" min-width="140" show-overflow-tooltip />
+                <el-table-column prop="trainDate" label="培训日期" width="110" />
+                <el-table-column prop="trainer" label="培训人" min-width="100" show-overflow-tooltip />
+                <el-table-column prop="result" label="结果" width="90" />
+                <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
+              </el-table>
+            </div>
           </el-form>
           <template #footer>
             <div class="drawer-footer">
@@ -602,10 +634,10 @@
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column prop="code" label="编号" min-width="120" sortable />
-              <el-table-column prop="name" label="名称" min-width="160" sortable />
-              <el-table-column prop="value1" label="值1" min-width="140" sortable show-overflow-tooltip />
-              <el-table-column prop="value2" label="值2" min-width="140" sortable show-overflow-tooltip />
+              <el-table-column prop="code" :label="sysConfigCodeLabel" min-width="120" sortable />
+              <el-table-column prop="name" :label="sysConfigNameLabel" min-width="160" sortable />
+              <el-table-column v-if="!isDictLikeSysCategory" prop="value1" label="值1" min-width="140" sortable show-overflow-tooltip />
+              <el-table-column v-if="!isDictLikeSysCategory" prop="value2" label="值2" min-width="140" sortable show-overflow-tooltip />
             </el-table>
           </div>
         </div>
@@ -630,24 +662,24 @@
             </div>
           </template>
           <el-form ref="sysConfigFormRef" :model="sysConfigForm" :rules="sysConfigRules" label-width="80px">
-            <el-form-item :label="sysCategoryId === JOB_POST_CATEGORY ? '岗位编码' : '编号'" prop="code">
+            <el-form-item :label="sysConfigCodeLabel" prop="code">
               <el-input
                 v-model="sysConfigForm.code"
                 maxlength="64"
-                :placeholder="sysCategoryId === JOB_POST_CATEGORY ? '如 admin' : '参数编号'"
+                :placeholder="sysConfigCodePlaceholder"
               />
             </el-form-item>
-            <el-form-item :label="sysCategoryId === JOB_POST_CATEGORY ? '岗位名称' : '名称'" prop="name">
+            <el-form-item :label="sysConfigNameLabel" prop="name">
               <el-input
                 v-model="sysConfigForm.name"
                 maxlength="128"
-                :placeholder="sysCategoryId === JOB_POST_CATEGORY ? '如 管理员' : '参数名称'"
+                :placeholder="sysConfigNamePlaceholder"
               />
             </el-form-item>
-            <el-form-item label="值1" prop="value1">
+            <el-form-item v-if="!isDictLikeSysCategory" label="值1" prop="value1">
               <el-input v-model="sysConfigForm.value1" maxlength="256" placeholder="选填" />
             </el-form-item>
-            <el-form-item label="值2" prop="value2">
+            <el-form-item v-if="!isDictLikeSysCategory" label="值2" prop="value2">
               <el-input v-model="sysConfigForm.value2" maxlength="256" placeholder="选填" />
             </el-form-item>
           </el-form>
@@ -1045,6 +1077,915 @@
       </div>
     </template>
 
+    <!-- 供应商维护 -->
+    <template v-else-if="active === 'vendors'">
+      <div ref="vendorPanelRef" class="org-panel">
+        <div class="toolbar">
+          <el-input
+            v-model="vendorKeyword"
+            clearable
+            placeholder="搜索供应商编码 / 名称 / 简码"
+            class="toolbar-search"
+            @keyup.enter="searchVendorPage"
+            @clear="searchVendorPage"
+          />
+          <el-button class="toolbar-btn toolbar-btn--search" :icon="Search" @click="searchVendorPage">搜索</el-button>
+          <el-button class="toolbar-btn toolbar-btn--refresh" :icon="Refresh" @click="loadVendorPage">刷新</el-button>
+          <el-button type="primary" class="toolbar-btn" :icon="Plus" @click="openVendorCreate">新增</el-button>
+        </div>
+        <div class="md-table-wrap">
+          <el-table
+            ref="vendorTableRef"
+            v-loading="vendorLoading"
+            :data="vendorRows"
+            border
+            height="100%"
+            class="md-table"
+            :row-class-name="vendorRowClassName"
+            @selection-change="onVendorSelectionChange"
+            @row-dblclick="onVendorRowDblclick"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column type="index" label="序号" width="64" :index="vendorIndex" />
+            <el-table-column prop="vendorCode" label="供应商编码" min-width="120" sortable show-overflow-tooltip />
+            <el-table-column prop="vendorName" label="供应商名称" min-width="140" sortable show-overflow-tooltip />
+            <el-table-column prop="shortCode" label="简码" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="socialCreditCode" label="统一社会信用代码" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="legalPerson" label="法人" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="salesman" label="业务员" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="contactPhone" label="联系电话" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="companyAddress" label="公司地址" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="email" label="邮箱" min-width="140" show-overflow-tooltip />
+            <el-table-column label="供应商类型" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatVendorTypes(row.vendorTypes) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
+              <template #default="{ row }">
+                <div class="org-ops">
+                  <el-button class="org-ops-btn" type="success" plain size="small" @click="openVendorEdit(row)">修改</el-button>
+                  <el-button class="org-ops-btn" type="danger" plain size="small" @click="deleteVendorRow(row)">删除</el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="md-pager">
+          <el-pagination
+            v-model:current-page="vendorPage"
+            v-model:page-size="vendorPageSize"
+            :total="vendorTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="prev, pager, next, jumper, total, sizes"
+            @current-change="loadVendorPage"
+            @size-change="onVendorPageSizeChange"
+          />
+        </div>
+        <el-drawer
+          v-model="vendorDrawerVisible"
+          direction="rtl"
+          size="520px"
+          :modal="true"
+          :show-close="false"
+          :append-to="vendorPanelRef || 'body'"
+          :lock-scroll="false"
+          :close-on-click-modal="false"
+          modal-class="org-drawer-modal"
+          destroy-on-close
+          @closed="resetVendorForm"
+        >
+          <template #header>
+            <div class="org-drawer-header">
+              <span class="org-drawer-title">{{ vendorDialogMode === 'edit' ? '修改供应商信息' : '新增供应商信息' }}</span>
+              <el-button type="danger" size="small" @click="vendorDrawerVisible = false">关闭</el-button>
+            </div>
+          </template>
+          <el-tabs v-model="vendorFormTab" class="staff-form-tabs">
+            <el-tab-pane label="基础信息" name="basic" />
+            <el-tab-pane label="证件信息" name="cert" />
+          </el-tabs>
+          <el-form ref="vendorFormRef" class="staff-form-grid" :model="vendorForm" :rules="vendorRules" label-width="128px">
+            <div v-show="vendorFormTab === 'basic'">
+              <el-form-item v-if="isPlatformAdmin" label="组织机构" prop="orgId">
+                <el-select v-model="vendorForm.orgId" filterable placeholder="请选择组织机构" style="width: 100%">
+                  <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="供应商编码" prop="vendorCode">
+                <el-input
+                  v-model="vendorForm.vendorCode"
+                  maxlength="64"
+                  :disabled="vendorDialogMode === 'edit'"
+                  :placeholder="vendorDialogMode === 'edit' ? '' : '新增留空则自动生成 G000001'"
+                />
+              </el-form-item>
+              <el-form-item label="供应商名称" prop="vendorName">
+                <el-input v-model="vendorForm.vendorName" maxlength="200" placeholder="请输入供应商名称" @input="onVendorNameInput" />
+              </el-form-item>
+              <el-form-item label="简码" prop="shortCode">
+                <el-input v-model="vendorForm.shortCode" maxlength="64" placeholder="根据名称自动生成" />
+              </el-form-item>
+              <el-form-item label="业务员" prop="salesman">
+                <el-input v-model="vendorForm.salesman" maxlength="64" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="联系电话" prop="contactPhone">
+                <el-input v-model="vendorForm.contactPhone" maxlength="32" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="公司地址" prop="companyAddress">
+                <el-input v-model="vendorForm.companyAddress" maxlength="255" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="邮箱" prop="email">
+                <el-input v-model="vendorForm.email" maxlength="128" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="是否启用" prop="isActive">
+                <el-switch v-model="vendorForm.isActive" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="备注" prop="remark">
+                <el-input v-model="vendorForm.remark" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="供应商类型" prop="vendorTypes">
+                <div class="vendor-type-lights">
+                  <button
+                    v-for="t in vendorTypeOptions"
+                    :key="t.value"
+                    type="button"
+                    class="vendor-type-light"
+                    :class="{ 'is-on': vendorForm.vendorTypes.includes(t.value) }"
+                    @click="toggleVendorType(t.value)"
+                  >
+                    {{ t.label }}
+                  </button>
+                  <span v-if="!vendorTypeOptions.length" class="hint">请先在系统配置「供应商类型维护」中维护类型</span>
+                </div>
+              </el-form-item>
+            </div>
+            <div v-show="vendorFormTab === 'cert'">
+              <el-form-item label="统一社会信用代码" prop="socialCreditCode">
+                <el-input v-model="vendorForm.socialCreditCode" maxlength="64" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="法人" prop="legalPerson">
+                <el-input v-model="vendorForm.legalPerson" maxlength="64" placeholder="选填" />
+              </el-form-item>
+            </div>
+          </el-form>
+          <template #footer>
+            <div class="drawer-footer">
+              <el-button @click="vendorDrawerVisible = false">取消</el-button>
+              <el-button type="primary" :loading="vendorSaving" @click="submitVendorForm">确定</el-button>
+            </div>
+          </template>
+        </el-drawer>
+      </div>
+    </template>
+
+    <!-- 生产厂家维护 -->
+    <template v-else-if="active === 'manufacturers'">
+      <div ref="mfrPanelRef" class="org-panel">
+        <div class="toolbar">
+          <el-input
+            v-model="mfrKeyword"
+            clearable
+            placeholder="搜索生产厂家编码 / 名称 / 简码"
+            class="toolbar-search"
+            @keyup.enter="searchMfrPage"
+            @clear="searchMfrPage"
+          />
+          <el-button class="toolbar-btn toolbar-btn--search" :icon="Search" @click="searchMfrPage">搜索</el-button>
+          <el-button class="toolbar-btn toolbar-btn--refresh" :icon="Refresh" @click="loadMfrPage">刷新</el-button>
+          <el-button type="primary" class="toolbar-btn" :icon="Plus" @click="openMfrCreate">新增</el-button>
+        </div>
+        <div class="md-table-wrap">
+          <el-table
+            ref="mfrTableRef"
+            v-loading="mfrLoading"
+            :data="mfrRows"
+            border
+            height="100%"
+            class="md-table"
+            :row-class-name="mfrRowClassName"
+            @selection-change="onMfrSelectionChange"
+            @row-dblclick="onMfrRowDblclick"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column type="index" label="序号" width="64" :index="mfrIndex" />
+            <el-table-column prop="mfrCode" label="生产厂家编码" min-width="120" sortable show-overflow-tooltip />
+            <el-table-column prop="mfrName" label="生产厂家名称" min-width="140" sortable show-overflow-tooltip />
+            <el-table-column prop="shortCode" label="简码" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="socialCreditCode" label="统一社会信用代码" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="legalPerson" label="法人" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="salesman" label="业务员" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="contactPhone" label="联系电话" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="companyAddress" label="公司地址" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="email" label="邮箱" min-width="140" show-overflow-tooltip />
+            <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
+              <template #default="{ row }">
+                <div class="org-ops">
+                  <el-button class="org-ops-btn" type="success" plain size="small" @click="openMfrEdit(row)">修改</el-button>
+                  <el-button class="org-ops-btn" type="danger" plain size="small" @click="deleteMfrRow(row)">删除</el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="md-pager">
+          <el-pagination
+            v-model:current-page="mfrPage"
+            v-model:page-size="mfrPageSize"
+            :total="mfrTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="prev, pager, next, jumper, total, sizes"
+            @current-change="loadMfrPage"
+            @size-change="onMfrPageSizeChange"
+          />
+        </div>
+        <el-drawer
+          v-model="mfrDrawerVisible"
+          direction="rtl"
+          size="520px"
+          :modal="true"
+          :show-close="false"
+          :append-to="mfrPanelRef || 'body'"
+          :lock-scroll="false"
+          :close-on-click-modal="false"
+          modal-class="org-drawer-modal"
+          destroy-on-close
+          @closed="resetMfrForm"
+        >
+          <template #header>
+            <div class="org-drawer-header">
+              <span class="org-drawer-title">{{ mfrDialogMode === 'edit' ? '修改生产厂家信息' : '新增生产厂家信息' }}</span>
+              <el-button type="danger" size="small" @click="mfrDrawerVisible = false">关闭</el-button>
+            </div>
+          </template>
+          <el-tabs v-model="mfrFormTab" class="staff-form-tabs">
+            <el-tab-pane label="基础信息" name="basic" />
+            <el-tab-pane label="证件信息" name="cert" />
+          </el-tabs>
+          <el-form ref="mfrFormRef" class="staff-form-grid" :model="mfrForm" :rules="mfrRules" label-width="128px">
+            <div v-show="mfrFormTab === 'basic'">
+              <el-form-item v-if="isPlatformAdmin" label="组织机构" prop="orgId">
+                <el-select v-model="mfrForm.orgId" filterable placeholder="请选择组织机构" style="width: 100%">
+                  <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="生产厂家编码" prop="mfrCode">
+                <el-input
+                  v-model="mfrForm.mfrCode"
+                  maxlength="64"
+                  :disabled="mfrDialogMode === 'edit'"
+                  :placeholder="mfrDialogMode === 'edit' ? '' : '新增留空则自动生成 S000001'"
+                />
+              </el-form-item>
+              <el-form-item label="生产厂家名称" prop="mfrName">
+                <el-input v-model="mfrForm.mfrName" maxlength="200" placeholder="请输入生产厂家名称" @input="onMfrNameInput" />
+              </el-form-item>
+              <el-form-item label="简码" prop="shortCode">
+                <el-input v-model="mfrForm.shortCode" maxlength="64" placeholder="根据名称自动生成" />
+              </el-form-item>
+              <el-form-item label="业务员" prop="salesman">
+                <el-input v-model="mfrForm.salesman" maxlength="64" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="联系电话" prop="contactPhone">
+                <el-input v-model="mfrForm.contactPhone" maxlength="32" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="公司地址" prop="companyAddress">
+                <el-input v-model="mfrForm.companyAddress" maxlength="255" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="邮箱" prop="email">
+                <el-input v-model="mfrForm.email" maxlength="128" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="是否启用" prop="isActive">
+                <el-switch v-model="mfrForm.isActive" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="备注" prop="remark">
+                <el-input v-model="mfrForm.remark" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+              </el-form-item>
+            </div>
+            <div v-show="mfrFormTab === 'cert'">
+              <el-form-item label="统一社会信用代码" prop="socialCreditCode">
+                <el-input v-model="mfrForm.socialCreditCode" maxlength="64" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="法人" prop="legalPerson">
+                <el-input v-model="mfrForm.legalPerson" maxlength="64" placeholder="选填" />
+              </el-form-item>
+            </div>
+          </el-form>
+          <template #footer>
+            <div class="drawer-footer">
+              <el-button @click="mfrDrawerVisible = false">取消</el-button>
+              <el-button type="primary" :loading="mfrSaving" @click="submitMfrForm">确定</el-button>
+            </div>
+          </template>
+        </el-drawer>
+      </div>
+    </template>
+
+    <!-- 设备维护 -->
+    <template v-else-if="active === 'devices'">
+      <div ref="devicePanelRef" class="org-panel">
+        <div class="toolbar">
+          <el-input
+            v-model="deviceKeyword"
+            clearable
+            placeholder="搜索设备编码 / 名称 / 厂家 / 供应商"
+            class="toolbar-search"
+            @keyup.enter="searchDevicePage"
+            @clear="searchDevicePage"
+          />
+          <el-button class="toolbar-btn toolbar-btn--search" :icon="Search" @click="searchDevicePage">搜索</el-button>
+          <el-button class="toolbar-btn toolbar-btn--refresh" :icon="Refresh" @click="loadDevicePage">刷新</el-button>
+          <el-button type="primary" class="toolbar-btn" :icon="Plus" @click="openDeviceCreate">新增</el-button>
+        </div>
+        <div class="md-table-wrap">
+          <el-table
+            ref="deviceTableRef"
+            v-loading="deviceLoading"
+            :data="deviceRows"
+            border
+            height="100%"
+            class="md-table"
+            :row-class-name="deviceRowClassName"
+            @selection-change="onDeviceSelectionChange"
+            @row-dblclick="onDeviceRowDblclick"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column type="index" label="序号" width="64" :index="deviceIndex" />
+            <el-table-column prop="deviceCode" label="设备编码" min-width="110" sortable show-overflow-tooltip />
+            <el-table-column prop="deviceName" label="设备名称" min-width="120" sortable show-overflow-tooltip />
+            <el-table-column prop="spec" label="规格" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="model" label="型号" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="unit" label="单位" width="70" />
+            <el-table-column prop="originalValue" label="原值(元)" width="100" />
+            <el-table-column prop="serialNo" label="序列号(SN)" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="deviceType" label="设备类型" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="installLocation" label="安装位置" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="areaName" label="所在区域" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="capabilityParams" label="设备能力参数" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="enabledDate" label="启用日期" width="110" />
+            <el-table-column prop="deviceStatus" label="设备状态" width="90" />
+            <el-table-column prop="manufacturerName" label="生产厂家" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="vendorName" label="供应商" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="brandName" label="品牌" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="countryName" label="国别" width="90" show-overflow-tooltip />
+            <el-table-column prop="deviceRegNo" label="医疗器械注册证号" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="productionDate" label="生产日期" width="110" />
+            <el-table-column prop="operatorName" label="设备操作责任人" min-width="120" show-overflow-tooltip />
+            <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
+              <template #default="{ row }">
+                <div class="org-ops">
+                  <el-button class="org-ops-btn" type="success" plain size="small" @click="openDeviceEdit(row)">修改</el-button>
+                  <el-button class="org-ops-btn" type="danger" plain size="small" @click="deleteDeviceRow(row)">删除</el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="md-pager">
+          <el-pagination
+            v-model:current-page="devicePage"
+            v-model:page-size="devicePageSize"
+            :total="deviceTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="prev, pager, next, jumper, total, sizes"
+            @current-change="loadDevicePage"
+            @size-change="onDevicePageSizeChange"
+          />
+        </div>
+        <el-drawer
+          v-model="deviceDrawerVisible"
+          direction="rtl"
+          size="780px"
+          :modal="true"
+          :show-close="false"
+          :append-to="devicePanelRef || 'body'"
+          :lock-scroll="false"
+          :close-on-click-modal="false"
+          modal-class="org-drawer-modal"
+          destroy-on-close
+          @closed="resetDeviceForm"
+        >
+          <template #header>
+            <div class="org-drawer-header">
+              <span class="org-drawer-title">{{ deviceDialogMode === 'edit' ? '修改设备信息' : '新增设备信息' }}</span>
+              <el-button type="danger" size="small" @click="deviceDrawerVisible = false">关闭</el-button>
+            </div>
+          </template>
+          <el-tabs v-model="deviceFormTab" class="staff-form-tabs">
+            <el-tab-pane label="基础信息" name="basic" />
+            <el-tab-pane label="设备卡片" name="card" />
+            <el-tab-pane label="设备图片" name="images" />
+            <el-tab-pane label="保养记录" name="maintainLog" />
+            <el-tab-pane label="不良事件" name="adverse" />
+            <el-tab-pane label="维保信息" name="maintain" />
+            <el-tab-pane label="资质证件" name="cert" />
+          </el-tabs>
+          <el-form ref="deviceFormRef" class="staff-form-grid" :model="deviceForm" :rules="deviceRules" label-width="120px">
+            <el-row v-show="deviceFormTab === 'basic'" :gutter="12">
+              <el-col v-if="isPlatformAdmin" :span="24">
+                <el-form-item label="组织机构" prop="orgId">
+                  <el-select
+                    v-model="deviceForm.orgId"
+                    filterable
+                    placeholder="请选择组织机构"
+                    style="width: 100%"
+                    @change="onDeviceOrgChange"
+                  >
+                    <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="设备编码" prop="deviceCode">
+                  <el-input
+                    v-model="deviceForm.deviceCode"
+                    maxlength="64"
+                    :disabled="deviceDialogMode === 'edit'"
+                    :placeholder="deviceDialogMode === 'edit' ? '' : '留空自动生成 D000001'"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="设备名称" prop="deviceName">
+                  <el-input v-model="deviceForm.deviceName" maxlength="200" placeholder="请输入设备名称" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="规格" prop="spec">
+                  <el-input v-model="deviceForm.spec" maxlength="128" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="型号" prop="model">
+                  <el-input v-model="deviceForm.model" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="单位" prop="unit">
+                  <el-select
+                    v-model="deviceForm.unit"
+                    filterable
+                    clearable
+                    placeholder="请选择单位"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="u in deviceUnitOptions"
+                      :key="u.id"
+                      :label="u.unitName"
+                      :value="u.unitName"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="原值(元)" prop="originalValue">
+                  <el-input-number
+                    v-model="deviceForm.originalValue"
+                    :min="0"
+                    :precision="2"
+                    :controls="false"
+                    placeholder="选填"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="序列号(SN)" prop="serialNo">
+                  <el-input v-model="deviceForm.serialNo" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="设备类型" prop="deviceType">
+                  <el-input v-model="deviceForm.deviceType" maxlength="64" placeholder="如 清洗机 / 灭菌器" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="安装位置" prop="installLocation">
+                  <el-input v-model="deviceForm.installLocation" maxlength="128" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="所在区域" prop="areaName">
+                  <el-input v-model="deviceForm.areaName" maxlength="128" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="启用日期" prop="enabledDate">
+                  <el-date-picker v-model="deviceForm.enabledDate" type="date" value-format="YYYY-MM-DD" placeholder="选填" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="设备状态" prop="deviceStatus">
+                  <el-select v-model="deviceForm.deviceStatus" placeholder="请选择" style="width: 100%">
+                    <el-option label="空闲" value="空闲" />
+                    <el-option label="使用中" value="使用中" />
+                    <el-option label="停用" value="停用" />
+                    <el-option label="维修" value="维修" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="操作责任人" prop="operatorId">
+                  <el-select
+                    v-model="deviceForm.operatorId"
+                    filterable
+                    clearable
+                    placeholder="请选择人员"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="s in deviceStaffOptions"
+                      :key="s.id"
+                      :label="s.staffName"
+                      :value="s.id"
+                    >
+                      <span>{{ s.staffName }}</span>
+                      <span style="float: right; color: #909399; font-size: 12px">{{ s.staffNo }}</span>
+                    </el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="生产厂家" prop="manufacturerId">
+                  <el-select
+                    v-model="deviceForm.manufacturerId"
+                    filterable
+                    clearable
+                    placeholder="请选择生产厂家"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="m in deviceMfrOptions"
+                      :key="m.id"
+                      :label="m.mfrName"
+                      :value="m.id"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="供应商" prop="vendorId">
+                  <el-select
+                    v-model="deviceForm.vendorId"
+                    filterable
+                    clearable
+                    placeholder="请选择供应商"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="v in deviceVendorOptions"
+                      :key="v.id"
+                      :label="v.vendorName"
+                      :value="v.id"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="品牌" prop="brandName">
+                  <el-input v-model="deviceForm.brandName" maxlength="128" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="国别" prop="countryName">
+                  <el-input v-model="deviceForm.countryName" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="医疗器械注册证号" prop="deviceRegNo" label-width="140px">
+                  <el-input v-model="deviceForm.deviceRegNo" maxlength="128" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="生产日期" prop="productionDate">
+                  <el-date-picker v-model="deviceForm.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选填" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="启用" prop="isActive">
+                  <el-switch v-model="deviceForm.isActive" :active-value="1" :inactive-value="0" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="24">
+                <el-form-item label="设备能力参数" prop="capabilityParams">
+                  <el-input v-model="deviceForm.capabilityParams" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="24">
+                <el-form-item label="备注" prop="remark">
+                  <el-input v-model="deviceForm.remark" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <div v-show="deviceFormTab === 'card'" class="device-asset-card-wrap">
+              <div class="device-ext-toolbar">
+                <el-button type="primary" plain :icon="Printer" @click="printDeviceAssetCard">打印</el-button>
+              </div>
+              <div ref="deviceAssetCardRef" class="device-asset-card-print">
+                <table class="device-asset-card">
+                  <thead>
+                    <tr>
+                      <th colspan="3" class="device-asset-card__title">{{ deviceAssetCardTitle }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="device-asset-card__label">资产名称</td>
+                      <td class="device-asset-card__value" colspan="2">{{ deviceForm.deviceName || '—' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="device-asset-card__label">卡片编号</td>
+                      <td class="device-asset-card__value" colspan="2">{{ deviceForm.deviceCode || '—' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="device-asset-card__label">原值(元)</td>
+                      <td class="device-asset-card__value" colspan="2">{{ deviceCardOriginalValueText }}</td>
+                    </tr>
+                    <tr>
+                      <td class="device-asset-card__label">规格型号</td>
+                      <td class="device-asset-card__value">{{ deviceCardSpecModel || '—' }}</td>
+                      <td class="device-asset-card__qr" rowspan="2">
+                        <img v-if="deviceCardQrUrl" :src="deviceCardQrUrl" alt="设备二维码" />
+                        <span v-else class="device-asset-card__qr-empty">保存后生成</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="device-asset-card__label">存放地点</td>
+                      <td class="device-asset-card__value">{{ deviceForm.installLocation || deviceForm.areaName || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="device-asset-card__hint">卡片字段均取自基础信息，此处仅展示；可打印资产卡片。</p>
+            </div>
+            <div v-show="deviceFormTab === 'images'" class="device-ext-pane">
+              <div class="device-ext-toolbar">
+                <el-upload
+                  :auto-upload="false"
+                  :show-file-list="false"
+                  accept=".jpg,.jpeg,.png,.webp,.gif"
+                  :on-change="onDeviceImageChange"
+                >
+                  <el-button type="primary" plain>上传图片</el-button>
+                </el-upload>
+                <span class="hint">支持 jpg/png，单张不超过 3MB</span>
+              </div>
+              <div v-if="deviceImageList.length" class="device-image-grid">
+                <div v-for="(img, idx) in deviceImageList" :key="`${img.name}-${idx}`" class="device-image-item">
+                  <img :src="img.dataUrl" :alt="img.name" />
+                  <div class="device-image-meta">
+                    <span :title="img.name">{{ img.name }}</span>
+                    <el-button link type="danger" @click="removeDeviceImage(idx)">删除</el-button>
+                  </div>
+                </div>
+              </div>
+              <el-empty v-else description="暂无设备图片" :image-size="72" />
+            </div>
+            <div v-show="deviceFormTab === 'maintainLog'" class="device-ext-pane">
+              <div class="device-ext-toolbar">
+                <el-button type="primary" plain @click="addDeviceMaintainLog">新增保养记录</el-button>
+              </div>
+              <el-table :data="deviceMaintainLogList" border size="small" class="md-table">
+                <el-table-column label="保养日期" width="160">
+                  <template #default="{ row }">
+                    <el-date-picker v-model="row.maintainAt" type="date" value-format="YYYY-MM-DD" placeholder="选填" style="width: 100%" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="保养内容" min-width="180">
+                  <template #default="{ row }">
+                    <el-input v-model="row.content" maxlength="500" placeholder="选填" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作人" width="120">
+                  <template #default="{ row }">
+                    <el-input v-model="row.operator" maxlength="64" placeholder="选填" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80" align="center">
+                  <template #default="{ $index }">
+                    <el-button link type="danger" @click="removeDeviceMaintainLog($index)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+            <div v-show="deviceFormTab === 'adverse'" class="device-ext-pane">
+              <div class="device-ext-toolbar">
+                <el-button type="primary" plain @click="addDeviceAdverseEvent">新增不良事件</el-button>
+              </div>
+              <el-table :data="deviceAdverseList" border size="small" class="md-table">
+                <el-table-column label="发生日期" width="160">
+                  <template #default="{ row }">
+                    <el-date-picker v-model="row.eventAt" type="date" value-format="YYYY-MM-DD" placeholder="选填" style="width: 100%" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="事件标题" min-width="140">
+                  <template #default="{ row }">
+                    <el-input v-model="row.title" maxlength="128" placeholder="选填" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="事件描述" min-width="180">
+                  <template #default="{ row }">
+                    <el-input v-model="row.content" maxlength="500" placeholder="选填" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="等级" width="110">
+                  <template #default="{ row }">
+                    <el-select v-model="row.level" placeholder="选填" clearable style="width: 100%">
+                      <el-option label="一般" value="一般" />
+                      <el-option label="严重" value="严重" />
+                      <el-option label="重大" value="重大" />
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80" align="center">
+                  <template #default="{ $index }">
+                    <el-button link type="danger" @click="removeDeviceAdverseEvent($index)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+            <el-row v-show="deviceFormTab === 'maintain'" :gutter="12">
+              <el-col :span="12">
+                <el-form-item label="维保周期" prop="maintainCycle">
+                  <el-input v-model="deviceForm.maintainCycle" maxlength="64" placeholder="如 30天 / 每季度" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="维保到期预警" prop="maintainExpireWarn">
+                  <el-input v-model="deviceForm.maintainExpireWarn" maxlength="64" placeholder="如 提前7天" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="上次维保时间" prop="lastMaintainAt">
+                  <el-date-picker v-model="deviceForm.lastMaintainAt" type="date" value-format="YYYY-MM-DD" placeholder="选填" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="24">
+                <el-form-item label="维保计划" prop="maintainPlan">
+                  <el-input v-model="deviceForm.maintainPlan" type="textarea" :rows="3" maxlength="500" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row v-show="deviceFormTab === 'cert'" :gutter="12">
+              <el-col :span="12">
+                <el-form-item label="检定证书编号" prop="inspectCertNo">
+                  <el-input v-model="deviceForm.inspectCertNo" maxlength="64" placeholder="选填" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="检定有效期" prop="inspectValidUntil">
+                  <el-date-picker v-model="deviceForm.inspectValidUntil" type="date" value-format="YYYY-MM-DD" placeholder="计量强检设备" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="24">
+                <el-form-item label="证书附件" prop="certAttachment">
+                  <div class="device-cert-upload">
+                    <el-upload
+                      :auto-upload="false"
+                      :show-file-list="false"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      :on-change="onDeviceCertFileChange"
+                    >
+                      <el-button type="primary" plain>选择附件</el-button>
+                    </el-upload>
+                    <span v-if="deviceForm.certAttachment" class="device-cert-name">{{ deviceForm.certAttachment }}</span>
+                    <el-button v-if="deviceForm.certAttachment" link type="danger" @click="clearDeviceCert">清除</el-button>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+          <template #footer>
+            <div class="drawer-footer">
+              <el-button @click="deviceDrawerVisible = false">取消</el-button>
+              <el-button type="primary" :loading="deviceSaving" @click="submitDeviceForm">确定</el-button>
+            </div>
+          </template>
+        </el-drawer>
+      </div>
+    </template>
+
+    <!-- 单位维护 -->
+    <template v-else-if="active === 'units'">
+      <div ref="unitPanelRef" class="org-panel">
+        <div class="toolbar">
+          <el-input
+            v-model="unitKeyword"
+            clearable
+            placeholder="搜索单位编码 / 名称"
+            class="toolbar-search"
+            @keyup.enter="searchUnitPage"
+            @clear="searchUnitPage"
+          />
+          <el-button class="toolbar-btn toolbar-btn--search" :icon="Search" @click="searchUnitPage">搜索</el-button>
+          <el-button class="toolbar-btn toolbar-btn--refresh" :icon="Refresh" @click="loadUnitPage">刷新</el-button>
+          <el-button type="primary" class="toolbar-btn" :icon="Plus" @click="openUnitCreate">新增</el-button>
+        </div>
+        <div class="md-table-wrap">
+          <el-table
+            ref="unitTableRef"
+            v-loading="unitLoading"
+            :data="unitRows"
+            border
+            height="100%"
+            class="md-table"
+            :row-class-name="unitRowClassName"
+            @selection-change="onUnitSelectionChange"
+            @row-dblclick="onUnitRowDblclick"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column type="index" label="序号" width="64" :index="unitIndex" />
+            <el-table-column prop="orgLabel" label="组织机构" min-width="160" sortable />
+            <el-table-column prop="unitCode" label="单位编码" min-width="120" sortable />
+            <el-table-column prop="unitName" label="单位名称" min-width="160" sortable />
+            <el-table-column prop="isActive" label="是否启用" width="100" align="center">
+              <template #default="{ row }">{{ row.isActive === 1 || row.isActive === true ? '是' : '否' }}</template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
+            <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
+              <template #default="{ row }">
+                <div class="org-ops">
+                  <el-button class="org-ops-btn" type="success" plain size="small" @click="openUnitEdit(row)">修改</el-button>
+                  <el-button class="org-ops-btn" type="danger" plain size="small" @click="deleteUnitRow(row)">删除</el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="md-pager">
+          <el-pagination
+            v-model:current-page="unitPage"
+            v-model:page-size="unitPageSize"
+            :total="unitTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="prev, pager, next, jumper, total, sizes"
+            @current-change="loadUnitPage"
+            @size-change="onUnitPageSizeChange"
+          />
+        </div>
+        <el-drawer
+          v-model="unitDrawerVisible"
+          direction="rtl"
+          size="480px"
+          :modal="true"
+          :show-close="false"
+          :append-to="unitPanelRef || 'body'"
+          :lock-scroll="false"
+          :close-on-click-modal="false"
+          modal-class="org-drawer-modal"
+          destroy-on-close
+          @closed="resetUnitForm"
+        >
+          <template #header>
+            <div class="org-drawer-header">
+              <span class="org-drawer-title">{{ unitDialogMode === 'edit' ? '修改单位信息' : '新增单位信息' }}</span>
+              <el-button type="danger" size="small" @click="unitDrawerVisible = false">关闭</el-button>
+            </div>
+          </template>
+          <el-form ref="unitFormRef" :model="unitForm" :rules="unitRules" label-width="100px">
+            <el-form-item label="组织机构" prop="orgId">
+              <el-select
+                v-model="unitForm.orgId"
+                filterable
+                placeholder="请选择组织机构"
+                style="width: 100%"
+                :disabled="!isPlatformAdmin"
+              >
+                <el-option
+                  v-for="o in orgOptions"
+                  :key="o.id"
+                  :label="`${o.campusCode} ${o.campusName}`"
+                  :value="o.id"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="单位编码" prop="unitCode">
+              <el-input
+                v-model="unitForm.unitCode"
+                maxlength="32"
+                :disabled="unitDialogMode === 'edit'"
+                :placeholder="unitDialogMode === 'edit' ? '' : '留空自动生成 D000001'"
+              />
+            </el-form-item>
+            <el-form-item label="单位名称" prop="unitName">
+              <el-input v-model="unitForm.unitName" maxlength="64" placeholder="请输入单位名称" />
+            </el-form-item>
+            <el-form-item label="是否启用" prop="isActive">
+              <el-switch v-model="unitForm.isActive" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+            <el-form-item label="备注" prop="remark">
+              <el-input v-model="unitForm.remark" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <div class="drawer-footer">
+              <el-button @click="unitDrawerVisible = false">取消</el-button>
+              <el-button type="primary" :loading="unitSaving" @click="submitUnitForm">确定</el-button>
+            </div>
+          </template>
+        </el-drawer>
+      </div>
+    </template>
+
     <!-- 其它主数据表 -->
     <template v-else-if="currentTab">
       <div class="toolbar">
@@ -1148,7 +2089,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Select, Close, Rank, Document, Setting, Folder, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Select, Close, Rank, Document, Setting, Folder, Upload, Download, Printer } from '@element-plus/icons-vue'
 import http from '../api'
 import {
   effectiveOrgId,
@@ -1261,6 +2202,8 @@ const staffTotal = ref(0)
 const staffDrawerVisible = ref(false)
 const staffDialogMode = ref('create') // create | edit
 const staffSaving = ref(false)
+const staffFormTab = ref('basic') // basic | qualify | train
+const staffTrainRows = ref([])
 const staffFormRef = ref(null)
 const staffForm = reactive({
   id: '',
@@ -1325,6 +2268,9 @@ const staffDialogTitle = computed(() =>
 /** 岗位选项：取自系统配置「基础参数 → 岗位维护」 */
 const JOB_POST_CATEGORY = 'job-post'
 const JOB_POST_STORAGE = 'cssd_job_posts'
+/** 供应商类型：取自系统配置「岗位维护」后的「供应商类型维护」 */
+const VENDOR_TYPE_CATEGORY = 'vendor-type'
+const VENDOR_TYPE_STORAGE = 'cssd_vendor_types'
 const jobPostSeed = [
   { code: 'admin', name: '管理员', value1: '', value2: '' },
   { code: 'nurse_lead', name: '护士长', value1: '', value2: '' },
@@ -1334,7 +2280,15 @@ const jobPostSeed = [
   { code: 'clinical', name: '临床', value1: '', value2: '' },
   { code: 'surgeon', name: '术者', value1: '', value2: '' }
 ]
+const vendorTypeSeed = [
+  { code: 'external_instrument', name: '外来器械供应商', value1: '', value2: '' },
+  { code: 'implant', name: '植入物供应商', value1: '', value2: '' },
+  { code: 'reusable_owned', name: '自有复用器械供应商', value1: '', value2: '' },
+  { code: 'cssd_consumable', name: 'CSSD 耗材供应商', value1: '', value2: '' },
+  { code: 'device_maintain', name: '设备维保服务商', value1: '', value2: '' }
+]
 const jobPostOptions = ref([])
+const vendorTypeOptions = ref([])
 function readJobPosts() {
   try {
     const raw = localStorage.getItem(orgScopedStorageKey(JOB_POST_STORAGE))
@@ -1358,6 +2312,29 @@ function writeJobPosts(rows) {
 function refreshJobPostOptions() {
   jobPostOptions.value = readJobPosts()
   buildStaffRoleTree()
+}
+function readVendorTypes() {
+  try {
+    const raw = localStorage.getItem(orgScopedStorageKey(VENDOR_TYPE_STORAGE))
+    if (raw) {
+      const list = JSON.parse(raw)
+      if (Array.isArray(list) && list.length) return list
+    }
+  } catch { /* ignore */ }
+  return vendorTypeSeed.map((r, i) => ({
+    id: `vtype_${r.code}_${i}`,
+    code: r.code,
+    name: r.name,
+    value1: r.value1,
+    value2: r.value2
+  }))
+}
+function writeVendorTypes(rows) {
+  localStorage.setItem(orgScopedStorageKey(VENDOR_TYPE_STORAGE), JSON.stringify(rows))
+  vendorTypeOptions.value = rows.map((r) => ({ value: r.code, label: r.name }))
+}
+function refreshVendorTypeOptions() {
+  vendorTypeOptions.value = readVendorTypes().map((r) => ({ value: r.code, label: r.name }))
 }
 function roleLabel(role) {
   const hit = jobPostOptions.value.find((p) => p.code === role)
@@ -1394,7 +2371,7 @@ function onStaffRoleTreeClick(data) {
 const AUTH_DEFAULT_MENUS = ['station']
 /** 与侧栏菜单对应的完整授权树（组织机构授权用） */
 const authMenuTreeFull = [
-  { id: 'station', label: '工位大厅', disabled: true },
+  { id: 'station', label: '首页', disabled: true },
   {
     id: 'supply',
     label: '供应中心',
@@ -1452,9 +2429,12 @@ const authMenuTreeFull = [
       { id: 'md-depts', label: '科室维护' },
       { id: 'md-staffs', label: '人员档案' },
       { id: 'md-perms', label: '权限管理' },
+      { id: 'md-vendors', label: '供应商维护' },
+      { id: 'md-manufacturers', label: '生产厂家维护' },
       { id: 'md-instruments', label: '器械字典' },
       { id: 'md-templates', label: '包模板' },
-      { id: 'md-devices', label: '设备' },
+      { id: 'md-devices', label: '设备维护' },
+      { id: 'md-units', label: '单位维护' },
       { id: 'md-sys-config', label: '系统配置' }
     ]
   }
@@ -1468,7 +2448,7 @@ function collectAuthKeys(nodes, out = []) {
   }
   return out
 }
-/** 按允许的菜单键裁剪授权树；始终保留工位大厅 */
+/** 按允许的菜单键裁剪授权树；始终保留首页 */
 function filterAuthMenuTree(nodes, allowedKeys) {
   if (!allowedKeys || !allowedKeys.length) {
     return authMenuTreeFull.filter((n) => AUTH_DEFAULT_MENUS.includes(n.id))
@@ -1624,7 +2604,7 @@ function onAuthDialogOpened() {
   applyAuthTreeChecks()
 }
 function onAuthTreeCheckChange(data, checked) {
-  // 工位大厅默认授权，禁止取消
+  // 首页默认授权，禁止取消
   if (data?.id === 'station' && !checked) {
     nextTick(() => {
       authTreeRef.value?.setChecked('station', true, false)
@@ -1787,7 +2767,7 @@ function authSelectAll() {
 }
 function authClearAll() {
   if (!authShowScopeTabs.value || authTab.value === 'menu') {
-    // 取消时仍保留默认「工位大厅」
+    // 取消时仍保留默认「首页」
     authTreeRef.value?.setCheckedKeys([...AUTH_DEFAULT_MENUS], false)
   } else if (authTab.value === 'dept') {
     authDeptTreeRef.value?.setCheckedKeys([], true)
@@ -1912,7 +2892,7 @@ async function initOrgRow(row) {
     }
   }
   if (authKeys.length <= AUTH_DEFAULT_MENUS.length) {
-    ElMessage.warning('请先对该组织机构完成菜单授权（工位大厅为默认），再执行初始化')
+    ElMessage.warning('请先对该组织机构完成菜单授权（首页为默认），再执行初始化')
     return
   }
   try {
@@ -1945,7 +2925,7 @@ async function initOrgRow(row) {
       return
     }
     await ElMessageBox.alert(
-      `管理员账号已生成（仅保留已授权菜单，含默认工位大厅）\n账号：${staffNo}\n密码：${data.password || staffNo}\n姓名：${data.staffName || ''}`,
+      `管理员账号已生成（仅保留已授权菜单，含默认首页）\n账号：${staffNo}\n密码：${data.password || staffNo}\n姓名：${data.staffName || ''}`,
       '初始化成功',
       { confirmButtonText: '知道了', type: 'success' }
     )
@@ -2000,20 +2980,13 @@ async function loadStaff() {
     if (staffRoleFilter.value) params.staffRole = staffRoleFilter.value
     const res = await http.get('/md/staffs', { params })
     let rows = res.data.records || []
+    // 服务端已按机构/岗位/关键字分页；前端仅做归属兜底，禁止再 slice，否则 total 变成当前页条数、第 2 页会空
     const oid = listOrgId(scope)
     if (oid) {
       const filterScope = { ...scope, orgId: oid, isPlatform: false }
       rows = rows.filter((r) => rowBelongsToOrg(r, filterScope))
-      if (staffRoleFilter.value) {
-        rows = rows.filter((r) => String(r.staffRole || '') === String(staffRoleFilter.value))
-      }
-      staffTotal.value = rows.length
-      // 前端兜底分页
-      const start = (staffPage.value - 1) * staffPageSize.value
-      rows = rows.slice(start, start + staffPageSize.value)
-    } else {
-      staffTotal.value = Number(res.data.total || 0)
     }
+    staffTotal.value = Number(res.data.total || 0)
     staffRows.value = rows
     staffSelected.value = []
     staffTableRef.value?.clearSelection?.()
@@ -2054,6 +3027,8 @@ function normalizeStaffUserType(row) {
 }
 function resetStaffForm() {
   fillStaffForm(null)
+  staffFormTab.value = 'basic'
+  staffTrainRows.value = []
   staffFormRef.value?.clearValidate?.()
 }
 async function loadStaffDeptOptions(orgId) {
@@ -2079,6 +3054,7 @@ async function openStaffCreate() {
   await loadOrgOptions()
   staffDialogMode.value = 'create'
   resetStaffForm()
+  staffFormTab.value = 'basic'
   staffForm.password = ''
   if (!isPlatformAdmin.value) {
     const scope = await resolveStaffOrgScope()
@@ -2090,35 +3066,72 @@ async function openStaffCreate() {
   staffDrawerVisible.value = true
 }
 
+/** 导入列（逻辑名，不含 *）；用户类型不进模板，导入固定为普通用户 */
 const STAFF_IMPORT_HEADERS = [
-  '工号', '姓名', '岗位编码', '密码', '年龄', '学历', '专业', '职称', '能级',
-  '联系人', '联系电话', 'QQ', '电子邮箱', '科室编码', '用户类型', '是否启用', '备注'
+  '工号', '姓名', '岗位名称', '密码', '年龄', '学历', '专业', '职称', '能级',
+  '联系人', '联系电话', 'QQ', '电子邮箱', '科室名称', '是否启用', '备注'
 ]
+const STAFF_IMPORT_REQUIRED = new Set(['工号', '姓名'])
 const staffImportVisible = ref(false)
 const staffImportFile = ref(null)
 const staffImportFileName = ref('')
 const staffImportRows = ref([])
 const staffImportSaving = ref(false)
+const staffImportDone = ref(0)
+const staffImportTotal = ref(0)
+const staffImportProgress = computed(() => {
+  const total = staffImportTotal.value
+  if (!total) return 0
+  return Math.min(100, Math.round((staffImportDone.value / total) * 100))
+})
 function openStaffImport() {
   staffImportFile.value = null
   staffImportFileName.value = ''
   staffImportRows.value = []
+  staffImportSaving.value = false
+  staffImportDone.value = 0
+  staffImportTotal.value = 0
   staffImportVisible.value = true
 }
 function downloadStaffImportTemplate() {
-  // UTF-8 BOM CSV：浏览器直读稳定；Excel 也能正确认中文表头
-  const sample = [
-    STAFF_IMPORT_HEADERS.join(','),
-    '10283,张三,admin,10283,30,本科,护理,护师,N1,张三,13800000000,,,0001,normal,1,'
-  ].join('\r\n')
-  const blob = new Blob(['\ufeff' + sample], { type: 'text/csv;charset=utf-8;' })
+  refreshJobPostOptions()
+  const escapeHtml = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  const colCount = STAFF_IMPORT_HEADERS.length
+  const cellStyle = "font-family:'等线',DengXian,sans-serif;font-size:12pt;border:0.5pt solid #000;text-align:center;vertical-align:middle;mso-number-format:'\\@';"
+  const titleStyle = "font-family:'等线',DengXian,sans-serif;font-size:16pt;font-weight:bold;text-align:center;vertical-align:middle;border:none;"
+  const headerCells = STAFF_IMPORT_HEADERS.map((h) => {
+    const label = STAFF_IMPORT_REQUIRED.has(h) ? `${h}*` : h
+    const color = STAFF_IMPORT_REQUIRED.has(h) ? 'color:#FF0000;font-weight:bold;' : 'font-weight:bold;'
+    return `<td style="${cellStyle}${color}">${escapeHtml(label)}</td>`
+  }).join('')
+  const sampleRole = (jobPostOptions.value.find((p) => p.code === 'admin') || jobPostOptions.value[0] || { name: '管理员' }).name
+  const sampleVals = ['10283', '张三', sampleRole, '10283', '30', '本科', '护理', '护师', 'N1', '张三', '13800000000', '', '', '', '1', '']
+  const dataCells = sampleVals.map((v) => `<td style="${cellStyle}">${escapeHtml(v)}</td>`).join('')
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>人员档案导入</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head>
+<body>
+<table border="0" cellspacing="0" cellpadding="4">
+<tr><td colspan="${colCount}" style="${titleStyle}">人员档案导入</td></tr>
+<tr>${headerCells}</tr>
+<tr>${dataCells}</tr>
+</table>
+</body></html>`
+  const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = '人员档案导入模板.csv'
+  a.download = '人员档案导入模板.xls'
   a.click()
   URL.revokeObjectURL(url)
-  ElMessage.success('模板已下载')
+  ElMessage.success('模板已下载（.xls，可用 Excel 打开编辑）')
 }
 function onStaffImportFileChange(file) {
   staffImportFile.value = file?.raw || null
@@ -2192,9 +3205,9 @@ function parseHtmlTableRows(html) {
 }
 function resolveHeaderIndex(headers) {
   const aliases = {
-    工号: ['工号', '员工号', '用户名', '账号'],
-    姓名: ['姓名', '名称', '员工姓名'],
-    岗位编码: ['岗位编码', '岗位', '角色编码', 'staffRole'],
+    工号: ['工号', '工号*', '员工号', '用户名', '账号'],
+    姓名: ['姓名', '姓名*', '名称', '员工姓名'],
+    岗位名称: ['岗位名称', '岗位', '岗位编码', '角色编码', 'staffRole'],
     密码: ['密码', '口令', 'password'],
     年龄: ['年龄'],
     学历: ['学历'],
@@ -2205,17 +3218,16 @@ function resolveHeaderIndex(headers) {
     联系电话: ['联系电话', '电话', '手机'],
     QQ: ['QQ', 'qq'],
     电子邮箱: ['电子邮箱', '邮箱', 'email', 'Email'],
-    科室编码: ['科室编码', '科室', '部门编码'],
-    用户类型: ['用户类型'],
+    科室名称: ['科室名称', '科室', '科室编码', '部门编码', '部门名称'],
     是否启用: ['是否启用', '启用'],
     备注: ['备注']
   }
   const map = {}
   Object.keys(aliases).forEach((key) => {
     const i = headers.findIndex((h) => {
-      const nh = normalizeImportHeader(h)
+      const nh = normalizeImportHeader(h).replace(/\*+$/, '')
       return aliases[key].some((a) => {
-        const na = normalizeImportHeader(a)
+        const na = normalizeImportHeader(a).replace(/\*+$/, '')
         return nh === na || nh.includes(na) || na.includes(nh)
       })
     })
@@ -2231,14 +3243,61 @@ function pickHeaderRow(matrix) {
     if (col['工号'] >= 0 && col['姓名'] >= 0) {
       return { headerIndex: i, headers, col }
     }
-    // 模板固定列序兜底
-    if (headers.length >= 2 && (headers[0] === '工号' || headers[0].includes('工号'))) {
+    // 模板固定列序兜底（跳过标题行）
+    const first = headers[0] || ''
+    if (headers.length >= 2 && (first === '工号' || first === '工号*' || first.includes('工号'))) {
       const fixed = {}
       STAFF_IMPORT_HEADERS.forEach((h, idx) => { fixed[h] = idx })
       return { headerIndex: i, headers, col: fixed }
     }
   }
   return null
+}
+function matchStaffRoleByLabel(raw) {
+  const posts = jobPostOptions.value.length ? jobPostOptions.value : readJobPosts()
+  const v = String(raw || '').trim()
+  if (!v) return { code: defaultStaffRole(), name: roleLabel(defaultStaffRole()), ok: true }
+  const nv = normalizeImportHeader(v)
+  const byName = posts.find((p) => String(p.name) === v || normalizeImportHeader(p.name) === nv)
+  if (byName) return { code: byName.code, name: byName.name, ok: true }
+  // 兼容旧模板误填编码
+  const byCode = posts.find((p) => String(p.code) === v || normalizeImportHeader(p.code) === nv)
+  if (byCode) return { code: byCode.code, name: byCode.name, ok: true }
+  return { code: '', name: v, ok: false }
+}
+function matchDeptByLabel(raw) {
+  const v = String(raw || '').trim()
+  if (!v) return { hit: null, ok: true }
+  const nv = normalizeImportHeader(v)
+  const hit = staffDeptLookup.value.find((d) => {
+    const name = String(d.deptName || '')
+    const code = String(d.deptCode || '')
+    return name === v || normalizeImportHeader(name) === nv
+      || code === v || normalizeImportHeader(code) === nv
+  })
+  return { hit: hit || null, ok: !!hit }
+}
+/** 拉取本机构已有工号，供导入解析时查重 */
+async function loadExistingStaffNoSet() {
+  const set = new Set()
+  const size = 500
+  try {
+    const first = await http.get('/md/staffs', { params: { page: 1, size } })
+    for (const r of (first.data.records || [])) {
+      const no = String(r.staffNo || '').trim()
+      if (no) set.add(no)
+    }
+    const total = Number(first.data.total || 0)
+    const pages = Math.min(Math.ceil(total / size) || 1, 40)
+    for (let page = 2; page <= pages; page++) {
+      const res = await http.get('/md/staffs', { params: { page, size } })
+      for (const r of (res.data.records || [])) {
+        const no = String(r.staffNo || '').trim()
+        if (no) set.add(no)
+      }
+    }
+  } catch { /* 查重失败时仍允许解析，导入时由后端兜底 */ }
+  return set
 }
 async function parseStaffImportFile() {
   if (!staffImportFile.value) {
@@ -2247,6 +3306,7 @@ async function parseStaffImportFile() {
   }
   refreshJobPostOptions()
   await loadStaffDeptLookup()
+  const existingStaffNos = await loadExistingStaffNoSet()
   const buf = await staffImportFile.value.arrayBuffer()
   const text = decodeImportBuffer(buf)
   const candidates = []
@@ -2259,7 +3319,6 @@ async function parseStaffImportFile() {
     if (lines.length) {
       const delimiter = detectCsvDelimiter(lines[0])
       candidates.push(lines.map((l) => splitCsvLine(l, delimiter)))
-      // 再试其它分隔符
       for (const d of [',', '\t', ';', '，']) {
         if (d === delimiter) continue
         candidates.push(lines.map((l) => splitCsvLine(l, d)))
@@ -2289,29 +3348,37 @@ async function parseStaffImportFile() {
     const i = col[key]
     return i >= 0 ? String(cols[i] ?? '').trim() : ''
   }
-  const roleSet = new Set((jobPostOptions.value.length ? jobPostOptions.value : readJobPosts()).map((p) => p.code))
   const rows = []
+  const seenInFile = new Set()
   for (let li = headerIndex + 1; li < matrix.length; li++) {
     const cols = matrix[li]
     const staffNo = getFrom(cols, '工号')
     const staffName = getFrom(cols, '姓名')
     if (!staffNo && !staffName) continue
-    const staffRole = getFrom(cols, '岗位编码') || defaultStaffRole()
-    const deptCode = getFrom(cols, '科室编码')
-    const deptHit = staffDeptLookup.value.find((d) => String(d.deptCode) === String(deptCode))
-    const userType = getFrom(cols, '用户类型') === 'admin' ? 'admin' : 'normal'
+    // 跳过仍是表头/标题的误解析行
+    if (normalizeImportHeader(staffNo).includes('工号') || staffName === '人员档案导入') continue
+    const roleHit = matchStaffRoleByLabel(getFrom(cols, '岗位名称'))
+    const deptRaw = getFrom(cols, '科室名称')
+    const deptHit = matchDeptByLabel(deptRaw)
     const activeRaw = getFrom(cols, '是否启用')
     const isActive = activeRaw === '0' || activeRaw === '否' || activeRaw.toLowerCase() === 'false' ? 0 : 1
     const ageRaw = getFrom(cols, '年龄')
     const errors = []
     if (!staffNo) errors.push('缺工号')
     if (!staffName) errors.push('缺姓名')
-    if (staffRole && !roleSet.has(staffRole)) errors.push('岗位编码无效')
-    if (deptCode && !deptHit) errors.push('科室编码无效')
+    if (!roleHit.ok) errors.push('岗位名称无效')
+    if (deptRaw && !deptHit.ok) errors.push('科室名称无效')
+    if (staffNo && existingStaffNos.has(staffNo)) {
+      errors.push('系统已存在，请勿重复导入')
+    } else if (staffNo && seenInFile.has(staffNo)) {
+      errors.push('文件内工号重复')
+    }
+    if (staffNo) seenInFile.add(staffNo)
     rows.push({
       staffNo,
       staffName,
-      staffRole,
+      staffRole: roleHit.code || defaultStaffRole(),
+      roleName: roleHit.name || roleLabel(roleHit.code),
       password: getFrom(cols, '密码') || staffNo,
       age: ageRaw ? Number(ageRaw) : null,
       education: getFrom(cols, '学历') || null,
@@ -2322,9 +3389,9 @@ async function parseStaffImportFile() {
       contactPhone: getFrom(cols, '联系电话') || null,
       qq: getFrom(cols, 'QQ') || null,
       email: getFrom(cols, '电子邮箱') || null,
-      deptCode,
-      deptId: deptHit?.id || null,
-      userType,
+      deptName: deptHit.hit?.deptName || deptRaw || '',
+      deptId: deptHit.hit?.id || null,
+      userType: 'normal',
       isActive,
       remark: getFrom(cols, '备注') || null,
       error: errors.join('；')
@@ -2332,15 +3399,25 @@ async function parseStaffImportFile() {
   }
   staffImportRows.value = rows
   if (!rows.length) ElMessage.warning('未解析到数据行，请在模板中填写后再解析')
-  else ElMessage.success(`已解析 ${rows.length} 行`)
+  else {
+    const dup = rows.filter((r) => r.error && String(r.error).includes('系统已存在')).length
+    const tip = dup ? `，其中 ${dup} 条工号系统已存在` : ''
+    ElMessage.success(`已解析 ${rows.length} 行${tip}`)
+  }
 }
 async function submitStaffImport() {
-  const rows = staffImportRows.value.filter((r) => !r.error)
-  if (!rows.length) {
-    ElMessage.warning('没有可导入的有效数据')
+  if (!staffImportRows.value.length) {
+    ElMessage.warning('请先解析出数据后再导入')
     return
   }
+  if (staffImportRows.value.some((r) => r.error)) {
+    ElMessage.warning('有校验未通过的请核对！')
+    return
+  }
+  const rows = staffImportRows.value
   staffImportSaving.value = true
+  staffImportDone.value = 0
+  staffImportTotal.value = rows.length
   let ok = 0
   let fail = 0
   try {
@@ -2363,7 +3440,7 @@ async function submitStaffImport() {
           qq: r.qq,
           email: r.email,
           deptId: r.deptId,
-          userType: r.userType,
+          userType: 'normal',
           orgId,
           orgCode: orgHit?.campusCode || null,
           isActive: r.isActive,
@@ -2372,6 +3449,8 @@ async function submitStaffImport() {
         ok++
       } catch {
         fail++
+      } finally {
+        staffImportDone.value += 1
       }
     }
     ElMessage.success(`导入完成：成功 ${ok} 条${fail ? `，失败 ${fail} 条` : ''}`)
@@ -2397,6 +3476,8 @@ async function openStaffEdit(row) {
   refreshJobPostOptions()
   await loadOrgOptions()
   staffDialogMode.value = 'edit'
+  staffFormTab.value = 'basic'
+  staffTrainRows.value = []
   fillStaffForm(row)
   if (!isPlatformAdmin.value) {
     const scope = await resolveStaffOrgScope()
@@ -2482,10 +3563,39 @@ const sysConfigRules = {
   code: [{ required: true, message: '请输入编号', trigger: 'blur' }],
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }]
 }
+const isDictLikeSysCategory = computed(() =>
+  sysCategoryId.value === JOB_POST_CATEGORY || sysCategoryId.value === VENDOR_TYPE_CATEGORY
+)
 const sysConfigDialogTitle = computed(() => {
-  const isJob = sysCategoryId.value === JOB_POST_CATEGORY
-  if (sysConfigDialogMode.value === 'edit') return isJob ? '修改岗位' : '修改系统参数'
-  return isJob ? '新增岗位' : '新增系统参数'
+  const cat = sysCategoryId.value
+  if (sysConfigDialogMode.value === 'edit') {
+    if (cat === JOB_POST_CATEGORY) return '修改岗位'
+    if (cat === VENDOR_TYPE_CATEGORY) return '修改供应商类型'
+    return '修改系统参数'
+  }
+  if (cat === JOB_POST_CATEGORY) return '新增岗位'
+  if (cat === VENDOR_TYPE_CATEGORY) return '新增供应商类型'
+  return '新增系统参数'
+})
+const sysConfigCodeLabel = computed(() => {
+  if (sysCategoryId.value === JOB_POST_CATEGORY) return '岗位编码'
+  if (sysCategoryId.value === VENDOR_TYPE_CATEGORY) return '类型编码'
+  return '编号'
+})
+const sysConfigNameLabel = computed(() => {
+  if (sysCategoryId.value === JOB_POST_CATEGORY) return '岗位名称'
+  if (sysCategoryId.value === VENDOR_TYPE_CATEGORY) return '类型名称'
+  return '名称'
+})
+const sysConfigCodePlaceholder = computed(() => {
+  if (sysCategoryId.value === JOB_POST_CATEGORY) return '如 admin'
+  if (sysCategoryId.value === VENDOR_TYPE_CATEGORY) return '如 implant'
+  return '参数编号'
+})
+const sysConfigNamePlaceholder = computed(() => {
+  if (sysCategoryId.value === JOB_POST_CATEGORY) return '如 管理员'
+  if (sysCategoryId.value === VENDOR_TYPE_CATEGORY) return '如 植入物供应商'
+  return '参数名称'
 })
 const sysConfigTree = [
   {
@@ -2494,6 +3604,7 @@ const sysConfigTree = [
     children: [
       { id: 'basic', label: '基础参数|01' },
       { id: JOB_POST_CATEGORY, label: '岗位维护' },
+      { id: VENDOR_TYPE_CATEGORY, label: '供应商类型维护' },
       { id: 'expire', label: '效期提醒|05' },
       { id: 'recycle', label: '回收参数|10' },
       { id: 'wash', label: '清洗参数|15' },
@@ -2529,6 +3640,7 @@ function sysConfigStorageKey(campusId, categoryId) {
 }
 function readSysConfigStore(campusId, categoryId) {
   if (categoryId === JOB_POST_CATEGORY) return readJobPosts()
+  if (categoryId === VENDOR_TYPE_CATEGORY) return readVendorTypes()
   try {
     const raw = localStorage.getItem(sysConfigStorageKey(campusId, categoryId))
     if (raw) {
@@ -2550,10 +3662,15 @@ function writeSysConfigStore(campusId, categoryId, rows) {
     writeJobPosts(rows)
     return
   }
+  if (categoryId === VENDOR_TYPE_CATEGORY) {
+    writeVendorTypes(rows)
+    return
+  }
   localStorage.setItem(sysConfigStorageKey(campusId, categoryId), JSON.stringify(rows))
 }
 async function loadSysConfigPage() {
   refreshJobPostOptions()
+  refreshVendorTypeOptions()
   try {
     const res = await http.get('/md/campuses', { params: { size: 200 } })
     sysCampusOptions.value = res.data.records || []
@@ -2676,6 +3793,9 @@ async function initSysConfigCategory() {
   if (sysCategoryId.value === JOB_POST_CATEGORY) {
     localStorage.removeItem(orgScopedStorageKey(JOB_POST_STORAGE))
     refreshJobPostOptions()
+  } else if (sysCategoryId.value === VENDOR_TYPE_CATEGORY) {
+    localStorage.removeItem(orgScopedStorageKey(VENDOR_TYPE_STORAGE))
+    refreshVendorTypeOptions()
   } else {
     localStorage.removeItem(sysConfigStorageKey(sysCampusId.value, sysCategoryId.value))
   }
@@ -3222,18 +4342,6 @@ const dataTabs = reactive([
     rows: [],
     loading: false
   },
-  {
-    key: 'devices',
-    path: '/md/devices',
-    cols: [
-      { prop: 'deviceCode', label: '设备编码' },
-      { prop: 'deviceNo', label: '设备号' },
-      { prop: 'deviceKind', label: '类型' },
-      { prop: 'sterTempClass', label: '灭菌温级' }
-    ],
-    rows: [],
-    loading: false
-  }
 ])
 
 const currentTab = computed(() => dataTabs.find(t => t.key === active.value) || null)
@@ -3459,12 +4567,890 @@ async function loadOrg() {
   }
 }
 
+/** 供应商维护 */
+const vendorLoading = ref(false)
+const vendorRows = ref([])
+const vendorSelected = ref([])
+const vendorTableRef = ref(null)
+const vendorPanelRef = ref(null)
+const vendorKeyword = ref('')
+const vendorPage = ref(1)
+const vendorPageSize = ref(10)
+const vendorTotal = ref(0)
+const vendorDrawerVisible = ref(false)
+const vendorDialogMode = ref('create')
+const vendorSaving = ref(false)
+const vendorFormTab = ref('basic')
+const vendorFormRef = ref(null)
+let vendorNameInitialsTimer = null
+const vendorForm = reactive({
+  id: '',
+  orgId: '',
+  vendorCode: '',
+  vendorName: '',
+  shortCode: '',
+  socialCreditCode: '',
+  legalPerson: '',
+  salesman: '',
+  contactPhone: '',
+  companyAddress: '',
+  email: '',
+  vendorTypes: [],
+  isActive: 1,
+  remark: ''
+})
+const vendorRules = {
+  orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
+  vendorName: [{ required: true, message: '请输入供应商名称', trigger: 'blur' }]
+}
+function parseVendorTypes(raw) {
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (!raw) return []
+  return String(raw).split(/[,，;；]/).map((s) => s.trim()).filter(Boolean)
+}
+function formatVendorTypes(raw) {
+  const opts = vendorTypeOptions.value.length
+    ? vendorTypeOptions.value
+    : readVendorTypes().map((r) => ({ value: r.code, label: r.name }))
+  const set = new Set(parseVendorTypes(raw))
+  const labels = opts.filter((t) => set.has(t.value)).map((t) => t.label)
+  // 字典已删但历史仍存的编码，直接展示编码兜底
+  for (const code of set) {
+    if (!opts.some((t) => t.value === code)) labels.push(code)
+  }
+  return labels.join('、') || ''
+}
+function toggleVendorType(value) {
+  const idx = vendorForm.vendorTypes.indexOf(value)
+  if (idx >= 0) vendorForm.vendorTypes.splice(idx, 1)
+  else vendorForm.vendorTypes.push(value)
+}
+function vendorIndex(i) {
+  return (vendorPage.value - 1) * vendorPageSize.value + i + 1
+}
+function searchVendorPage() {
+  vendorPage.value = 1
+  loadVendorPage()
+}
+function onVendorPageSizeChange() {
+  vendorPage.value = 1
+  loadVendorPage()
+}
+function onVendorSelectionChange(rows) { vendorSelected.value = rows }
+function onVendorRowDblclick(row) {
+  vendorTableRef.value?.toggleRowSelection(row, !vendorSelected.value.some((r) => r.id === row.id))
+}
+function vendorRowClassName({ row }) {
+  return vendorSelected.value.some((r) => r.id === row.id) ? 'org-row-selected' : ''
+}
+async function loadVendorPage() {
+  vendorLoading.value = true
+  try {
+    refreshVendorTypeOptions()
+    const scope = await resolveStaffOrgScope()
+    await loadOrgOptions()
+    const kw = vendorKeyword.value?.trim() || undefined
+    const params = { page: Number(vendorPage.value) || 1, size: Number(vendorPageSize.value) || 10 }
+    if (kw) params.keyword = kw
+    const oid = listOrgId(scope)
+    if (oid) params.orgId = oid
+    const res = await http.get('/md/vendors', { params })
+    vendorRows.value = res?.data?.records || []
+    vendorTotal.value = Number(res?.data?.total || 0)
+    vendorSelected.value = []
+  } catch (e) {
+    ElMessage.error(e?.message || '供应商列表加载失败')
+  } finally {
+    vendorLoading.value = false
+  }
+}
+function fillVendorForm(row) {
+  vendorForm.id = row?.id || ''
+  vendorForm.orgId = row?.orgId || ''
+  vendorForm.vendorCode = row?.vendorCode || ''
+  vendorForm.vendorName = row?.vendorName || ''
+  vendorForm.shortCode = row?.shortCode || ''
+  vendorForm.socialCreditCode = row?.socialCreditCode || ''
+  vendorForm.legalPerson = row?.legalPerson || ''
+  vendorForm.salesman = row?.salesman || ''
+  vendorForm.contactPhone = row?.contactPhone || ''
+  vendorForm.companyAddress = row?.companyAddress || ''
+  vendorForm.email = row?.email || ''
+  vendorForm.vendorTypes = parseVendorTypes(row?.vendorTypes)
+  vendorForm.isActive = row?.isActive ?? 1
+  vendorForm.remark = row?.remark || ''
+}
+function resetVendorForm() {
+  fillVendorForm(null)
+  vendorFormTab.value = 'basic'
+  vendorFormRef.value?.clearValidate?.()
+}
+async function fetchNameInitials(name) {
+  const n = String(name || '').trim()
+  if (!n) return ''
+  try {
+    const res = await http.get('/md/name-initials', { params: { name: n } })
+    return String(res?.data?.initials || '').toUpperCase()
+  } catch {
+    return ''
+  }
+}
+function onVendorNameInput() {
+  clearTimeout(vendorNameInitialsTimer)
+  vendorNameInitialsTimer = setTimeout(async () => {
+    vendorForm.shortCode = await fetchNameInitials(vendorForm.vendorName)
+  }, 200)
+}
+async function openVendorCreate() {
+  await loadOrgOptions()
+  refreshVendorTypeOptions()
+  vendorDialogMode.value = 'create'
+  resetVendorForm()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope)
+  if (oid) vendorForm.orgId = oid
+  else if (isPlatformAdmin.value) vendorForm.orgId = effectiveOrgId() || orgOptions.value[0]?.id || ''
+  vendorDrawerVisible.value = true
+}
+async function openVendorEdit(row) {
+  await loadOrgOptions()
+  refreshVendorTypeOptions()
+  vendorDialogMode.value = 'edit'
+  vendorFormTab.value = 'basic'
+  fillVendorForm(row)
+  vendorDrawerVisible.value = true
+}
+async function submitVendorForm() {
+  const form = vendorFormRef.value
+  if (!form) return
+  await form.validate(async (ok) => {
+    if (!ok) return
+    vendorSaving.value = true
+    try {
+      const scope = await resolveStaffOrgScope()
+      const oid = listOrgId(scope) || vendorForm.orgId
+      const payload = {
+        orgId: oid,
+        vendorCode: vendorForm.vendorCode?.trim() || null,
+        vendorName: vendorForm.vendorName.trim(),
+        shortCode: (vendorForm.shortCode?.trim() || '').toUpperCase() || null,
+        socialCreditCode: vendorForm.socialCreditCode?.trim() || null,
+        legalPerson: vendorForm.legalPerson?.trim() || null,
+        salesman: vendorForm.salesman?.trim() || null,
+        contactPhone: vendorForm.contactPhone?.trim() || null,
+        companyAddress: vendorForm.companyAddress?.trim() || null,
+        email: vendorForm.email?.trim() || null,
+        vendorTypes: vendorForm.vendorTypes.length ? vendorForm.vendorTypes.join(',') : null,
+        isActive: vendorForm.isActive,
+        remark: vendorForm.remark?.trim() || null
+      }
+      if (vendorDialogMode.value === 'edit') payload.id = vendorForm.id
+      await http.post('/md/vendors', payload)
+      ElMessage.success(vendorDialogMode.value === 'edit' ? '供应商已修改' : '供应商已新增')
+      vendorDrawerVisible.value = false
+      await loadVendorPage()
+    } finally {
+      vendorSaving.value = false
+    }
+  })
+}
+async function deleteVendorRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除供应商「${row.vendorCode} ${row.vendorName}」？`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  await http.delete(`/md/vendors/${row.id}`)
+  ElMessage.success('已删除')
+  await loadVendorPage()
+}
+
+/** 生产厂家维护 */
+const mfrLoading = ref(false)
+const mfrRows = ref([])
+const mfrSelected = ref([])
+const mfrTableRef = ref(null)
+const mfrPanelRef = ref(null)
+const mfrKeyword = ref('')
+const mfrPage = ref(1)
+const mfrPageSize = ref(10)
+const mfrTotal = ref(0)
+const mfrDrawerVisible = ref(false)
+const mfrDialogMode = ref('create')
+const mfrSaving = ref(false)
+const mfrFormTab = ref('basic')
+const mfrFormRef = ref(null)
+let mfrNameInitialsTimer = null
+const mfrForm = reactive({
+  id: '',
+  orgId: '',
+  mfrCode: '',
+  mfrName: '',
+  shortCode: '',
+  socialCreditCode: '',
+  legalPerson: '',
+  salesman: '',
+  contactPhone: '',
+  companyAddress: '',
+  email: '',
+  isActive: 1,
+  remark: ''
+})
+const mfrRules = {
+  orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
+  mfrName: [{ required: true, message: '请输入生产厂家名称', trigger: 'blur' }]
+}
+function mfrIndex(i) {
+  return (mfrPage.value - 1) * mfrPageSize.value + i + 1
+}
+function searchMfrPage() {
+  mfrPage.value = 1
+  loadMfrPage()
+}
+function onMfrPageSizeChange() {
+  mfrPage.value = 1
+  loadMfrPage()
+}
+function onMfrSelectionChange(rows) { mfrSelected.value = rows }
+function onMfrRowDblclick(row) {
+  mfrTableRef.value?.toggleRowSelection(row, !mfrSelected.value.some((r) => r.id === row.id))
+}
+function mfrRowClassName({ row }) {
+  return mfrSelected.value.some((r) => r.id === row.id) ? 'org-row-selected' : ''
+}
+async function loadMfrPage() {
+  mfrLoading.value = true
+  try {
+    const scope = await resolveStaffOrgScope()
+    await loadOrgOptions()
+    const kw = mfrKeyword.value?.trim() || undefined
+    const params = { page: Number(mfrPage.value) || 1, size: Number(mfrPageSize.value) || 10 }
+    if (kw) params.keyword = kw
+    const oid = listOrgId(scope)
+    if (oid) params.orgId = oid
+    const res = await http.get('/md/manufacturers', { params })
+    mfrRows.value = res?.data?.records || []
+    mfrTotal.value = Number(res?.data?.total || 0)
+    mfrSelected.value = []
+  } catch (e) {
+    ElMessage.error(e?.message || '生产厂家列表加载失败')
+  } finally {
+    mfrLoading.value = false
+  }
+}
+function fillMfrForm(row) {
+  mfrForm.id = row?.id || ''
+  mfrForm.orgId = row?.orgId || ''
+  mfrForm.mfrCode = row?.mfrCode || ''
+  mfrForm.mfrName = row?.mfrName || ''
+  mfrForm.shortCode = row?.shortCode || ''
+  mfrForm.socialCreditCode = row?.socialCreditCode || ''
+  mfrForm.legalPerson = row?.legalPerson || ''
+  mfrForm.salesman = row?.salesman || ''
+  mfrForm.contactPhone = row?.contactPhone || ''
+  mfrForm.companyAddress = row?.companyAddress || ''
+  mfrForm.email = row?.email || ''
+  mfrForm.isActive = row?.isActive ?? 1
+  mfrForm.remark = row?.remark || ''
+}
+function resetMfrForm() {
+  fillMfrForm(null)
+  mfrFormTab.value = 'basic'
+  mfrFormRef.value?.clearValidate?.()
+}
+function onMfrNameInput() {
+  clearTimeout(mfrNameInitialsTimer)
+  mfrNameInitialsTimer = setTimeout(async () => {
+    mfrForm.shortCode = await fetchNameInitials(mfrForm.mfrName)
+  }, 200)
+}
+async function openMfrCreate() {
+  await loadOrgOptions()
+  mfrDialogMode.value = 'create'
+  resetMfrForm()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope)
+  if (oid) mfrForm.orgId = oid
+  else if (isPlatformAdmin.value) mfrForm.orgId = effectiveOrgId() || orgOptions.value[0]?.id || ''
+  mfrDrawerVisible.value = true
+}
+async function openMfrEdit(row) {
+  await loadOrgOptions()
+  mfrDialogMode.value = 'edit'
+  mfrFormTab.value = 'basic'
+  fillMfrForm(row)
+  mfrDrawerVisible.value = true
+}
+async function submitMfrForm() {
+  const form = mfrFormRef.value
+  if (!form) return
+  await form.validate(async (ok) => {
+    if (!ok) return
+    mfrSaving.value = true
+    try {
+      const scope = await resolveStaffOrgScope()
+      const oid = listOrgId(scope) || mfrForm.orgId
+      const payload = {
+        orgId: oid,
+        mfrCode: mfrForm.mfrCode?.trim() || null,
+        mfrName: mfrForm.mfrName.trim(),
+        shortCode: (mfrForm.shortCode?.trim() || '').toUpperCase() || null,
+        socialCreditCode: mfrForm.socialCreditCode?.trim() || null,
+        legalPerson: mfrForm.legalPerson?.trim() || null,
+        salesman: mfrForm.salesman?.trim() || null,
+        contactPhone: mfrForm.contactPhone?.trim() || null,
+        companyAddress: mfrForm.companyAddress?.trim() || null,
+        email: mfrForm.email?.trim() || null,
+        isActive: mfrForm.isActive,
+        remark: mfrForm.remark?.trim() || null
+      }
+      if (mfrDialogMode.value === 'edit') payload.id = mfrForm.id
+      await http.post('/md/manufacturers', payload)
+      ElMessage.success(mfrDialogMode.value === 'edit' ? '生产厂家已修改' : '生产厂家已新增')
+      mfrDrawerVisible.value = false
+      await loadMfrPage()
+    } finally {
+      mfrSaving.value = false
+    }
+  })
+}
+async function deleteMfrRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除生产厂家「${row.mfrCode} ${row.mfrName}」？`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  await http.delete(`/md/manufacturers/${row.id}`)
+  ElMessage.success('已删除')
+  await loadMfrPage()
+}
+
+/** 设备维护 */
+const deviceLoading = ref(false)
+const deviceRows = ref([])
+const deviceSelected = ref([])
+const deviceTableRef = ref(null)
+const devicePanelRef = ref(null)
+const deviceKeyword = ref('')
+const devicePage = ref(1)
+const devicePageSize = ref(10)
+const deviceTotal = ref(0)
+const deviceDrawerVisible = ref(false)
+const deviceDialogMode = ref('create')
+const deviceSaving = ref(false)
+const deviceFormTab = ref('basic')
+const deviceFormRef = ref(null)
+const deviceMfrOptions = ref([])
+const deviceVendorOptions = ref([])
+const deviceUnitOptions = ref([])
+const deviceStaffOptions = ref([])
+const deviceForm = reactive({
+  id: '',
+  orgId: '',
+  deviceCode: '',
+  deviceName: '',
+  spec: '',
+  model: '',
+  unit: '',
+  serialNo: '',
+  deviceType: '',
+  installLocation: '',
+  areaName: '',
+  capabilityParams: '',
+  enabledDate: '',
+  deviceStatus: '空闲',
+  operatorId: '',
+  operatorName: '',
+  manufacturerId: '',
+  vendorId: '',
+  brandName: '',
+  countryName: '',
+  deviceRegNo: '',
+  productionDate: '',
+  originalValue: null,
+  purchaseDate: '',
+  maintainCycle: '',
+  maintainPlan: '',
+  lastMaintainAt: '',
+  maintainExpireWarn: '',
+  inspectCertNo: '',
+  inspectValidUntil: '',
+  certAttachment: '',
+  certAttachmentData: '',
+  isActive: 1,
+  remark: ''
+})
+const deviceImageList = ref([])
+const deviceMaintainLogList = ref([])
+const deviceAdverseList = ref([])
+const deviceRules = {
+  orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
+  deviceName: [{ required: true, message: '请输入设备名称', trigger: 'blur' }]
+}
+const deviceAssetCardRef = ref(null)
+const deviceAssetCardTitle = computed(() => {
+  const org = orgOptions.value.find((o) => o.id === deviceForm.orgId)
+  const name = org?.campusName || '本机构'
+  return `${name}专用固定资产`
+})
+const deviceCardSpecModel = computed(() => {
+  const parts = [deviceForm.spec, deviceForm.model].map((s) => (s || '').trim()).filter(Boolean)
+  return [...new Set(parts)].join(' ')
+})
+const deviceCardOriginalValueText = computed(() => {
+  const v = deviceForm.originalValue
+  if (v == null || v === '') return '—'
+  const n = Number(v)
+  return Number.isFinite(n) ? n.toFixed(2) : String(v)
+})
+const deviceCardQrUrl = computed(() => {
+  const code = (deviceForm.deviceCode || deviceForm.id || '').trim()
+  if (!code) return ''
+  return `https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=6&data=${encodeURIComponent(code)}`
+})
+function printDeviceAssetCard() {
+  const el = deviceAssetCardRef.value
+  if (!el) return
+  const win = window.open('', '_blank', 'width=720,height=640')
+  if (!win) {
+    ElMessage.warning('浏览器拦截了打印窗口，请允许弹窗后重试')
+    return
+  }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${deviceAssetCardTitle.value}</title>
+<style>
+  body{margin:24px;font-family:Microsoft YaHei,sans-serif;color:#303133}
+  .device-asset-card{width:420px;border-collapse:collapse;table-layout:fixed;border:1px solid #333}
+  .device-asset-card th,.device-asset-card td{border:1px solid #333;padding:6px 8px;font-size:12px;vertical-align:middle}
+  .device-asset-card__title{text-align:center;font-size:14px;font-weight:600;padding:8px}
+  .device-asset-card__label{width:26%;background:#f5f5f5;white-space:nowrap}
+  .device-asset-card__value{word-break:break-all}
+  .device-asset-card__qr{width:30%;text-align:center}
+  .device-asset-card__qr img{width:88px;height:88px}
+</style></head><body>${el.innerHTML}</body></html>`)
+  win.document.close()
+  win.focus()
+  setTimeout(() => {
+    win.print()
+    win.close()
+  }, 300)
+}
+function parseDeviceJsonList(raw) {
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+function deviceIndex(i) {
+  return (devicePage.value - 1) * devicePageSize.value + i + 1
+}
+function searchDevicePage() {
+  devicePage.value = 1
+  loadDevicePage()
+}
+function onDevicePageSizeChange() {
+  devicePage.value = 1
+  loadDevicePage()
+}
+function onDeviceSelectionChange(rows) { deviceSelected.value = rows }
+function onDeviceRowDblclick(row) {
+  deviceTableRef.value?.toggleRowSelection(row, !deviceSelected.value.some((r) => r.id === row.id))
+}
+function deviceRowClassName({ row }) {
+  return deviceSelected.value.some((r) => r.id === row.id) ? 'org-row-selected' : ''
+}
+async function loadDevicePage() {
+  deviceLoading.value = true
+  try {
+    const scope = await resolveStaffOrgScope()
+    await loadOrgOptions()
+    const kw = deviceKeyword.value?.trim() || undefined
+    const params = { page: Number(devicePage.value) || 1, size: Number(devicePageSize.value) || 10 }
+    if (kw) params.keyword = kw
+    const oid = listOrgId(scope)
+    if (oid) params.orgId = oid
+    const res = await http.get('/md/devices', { params })
+    deviceRows.value = res?.data?.records || []
+    deviceTotal.value = Number(res?.data?.total || 0)
+    deviceSelected.value = []
+  } catch (e) {
+    ElMessage.error(e?.message || '设备列表加载失败')
+  } finally {
+    deviceLoading.value = false
+  }
+}
+function fillDeviceForm(row) {
+  deviceForm.id = row?.id || ''
+  deviceForm.orgId = row?.orgId || ''
+  deviceForm.deviceCode = row?.deviceCode || ''
+  deviceForm.deviceName = row?.deviceName || ''
+  deviceForm.spec = row?.spec || ''
+  deviceForm.model = row?.model || ''
+  deviceForm.unit = row?.unit || ''
+  deviceForm.serialNo = row?.serialNo || ''
+  deviceForm.deviceType = row?.deviceType || ''
+  deviceForm.installLocation = row?.installLocation || ''
+  deviceForm.areaName = row?.areaName || ''
+  deviceForm.capabilityParams = row?.capabilityParams || ''
+  deviceForm.enabledDate = row?.enabledDate || ''
+  deviceForm.deviceStatus = row?.deviceStatus || '空闲'
+  deviceForm.operatorId = row?.operatorId || ''
+  deviceForm.operatorName = row?.operatorName || ''
+  deviceForm.manufacturerId = row?.manufacturerId || ''
+  deviceForm.vendorId = row?.vendorId || ''
+  deviceForm.brandName = row?.brandName || ''
+  deviceForm.countryName = row?.countryName || ''
+  deviceForm.deviceRegNo = row?.deviceRegNo || ''
+  deviceForm.productionDate = row?.productionDate || ''
+  deviceForm.originalValue = row?.originalValue != null && row?.originalValue !== '' ? Number(row.originalValue) : null
+  deviceForm.purchaseDate = row?.purchaseDate || ''
+  deviceForm.maintainCycle = row?.maintainCycle || ''
+  deviceForm.maintainPlan = row?.maintainPlan || ''
+  deviceForm.lastMaintainAt = row?.lastMaintainAt || ''
+  deviceForm.maintainExpireWarn = row?.maintainExpireWarn || ''
+  deviceForm.inspectCertNo = row?.inspectCertNo || ''
+  deviceForm.inspectValidUntil = row?.inspectValidUntil || ''
+  deviceForm.certAttachment = row?.certAttachment || ''
+  // 列表不回填 base64；未重传时由后端按文件名保留原附件
+  deviceForm.certAttachmentData = ''
+  deviceForm.isActive = row?.isActive ?? 1
+  deviceForm.remark = row?.remark || ''
+  deviceImageList.value = parseDeviceJsonList(row?.deviceImages).map((x) => ({
+    name: x?.name || 'image',
+    dataUrl: x?.dataUrl || ''
+  })).filter((x) => x.dataUrl)
+  deviceMaintainLogList.value = parseDeviceJsonList(row?.maintainLogs).map((x) => ({
+    maintainAt: x?.maintainAt || '',
+    content: x?.content || '',
+    operator: x?.operator || ''
+  }))
+  deviceAdverseList.value = parseDeviceJsonList(row?.adverseEvents).map((x) => ({
+    eventAt: x?.eventAt || '',
+    title: x?.title || '',
+    content: x?.content || '',
+    level: x?.level || ''
+  }))
+}
+function resetDeviceForm() {
+  fillDeviceForm(null)
+  deviceFormTab.value = 'basic'
+  deviceMfrOptions.value = []
+  deviceVendorOptions.value = []
+  deviceUnitOptions.value = []
+  deviceStaffOptions.value = []
+  deviceFormRef.value?.clearValidate?.()
+}
+function onDeviceImageChange(file) {
+  const raw = file?.raw
+  if (!raw) return
+  if (raw.size > 3 * 1024 * 1024) {
+    ElMessage.warning('单张图片请控制在 3MB 以内')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    deviceImageList.value.push({ name: raw.name, dataUrl: String(reader.result || '') })
+  }
+  reader.readAsDataURL(raw)
+}
+function removeDeviceImage(idx) {
+  deviceImageList.value.splice(idx, 1)
+}
+function addDeviceMaintainLog() {
+  deviceMaintainLogList.value.push({ maintainAt: '', content: '', operator: '' })
+}
+function removeDeviceMaintainLog(idx) {
+  deviceMaintainLogList.value.splice(idx, 1)
+}
+function addDeviceAdverseEvent() {
+  deviceAdverseList.value.push({ eventAt: '', title: '', content: '', level: '' })
+}
+function removeDeviceAdverseEvent(idx) {
+  deviceAdverseList.value.splice(idx, 1)
+}
+async function loadDeviceDictOptions(orgId) {
+  const params = { page: 1, size: 500 }
+  if (orgId) params.orgId = orgId
+  try {
+    const [mfrRes, vendorRes, unitRes, staffRes] = await Promise.all([
+      http.get('/md/manufacturers', { params }),
+      http.get('/md/vendors', { params }),
+      http.get('/md/units', { params }),
+      http.get('/md/staffs', { params })
+    ])
+    deviceMfrOptions.value = (mfrRes?.data?.records || []).filter((r) => r.isActive !== 0)
+    deviceVendorOptions.value = (vendorRes?.data?.records || []).filter((r) => r.isActive !== 0)
+    deviceUnitOptions.value = (unitRes?.data?.records || []).filter((r) => r.isActive !== 0)
+    deviceStaffOptions.value = (staffRes?.data?.records || []).filter((r) => r.isActive !== 0)
+  } catch (e) {
+    deviceMfrOptions.value = []
+    deviceVendorOptions.value = []
+    deviceUnitOptions.value = []
+    deviceStaffOptions.value = []
+    ElMessage.error(e?.message || '设备字典选项加载失败')
+  }
+}
+async function onDeviceOrgChange(orgId) {
+  deviceForm.manufacturerId = ''
+  deviceForm.vendorId = ''
+  deviceForm.unit = ''
+  deviceForm.operatorId = ''
+  deviceForm.operatorName = ''
+  await loadDeviceDictOptions(orgId)
+}
+function onDeviceCertFileChange(file) {
+  const raw = file?.raw
+  if (!raw) return
+  if (raw.size > 5 * 1024 * 1024) {
+    ElMessage.warning('证书附件请控制在 5MB 以内')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    deviceForm.certAttachment = raw.name
+    deviceForm.certAttachmentData = String(reader.result || '')
+  }
+  reader.readAsDataURL(raw)
+}
+function clearDeviceCert() {
+  deviceForm.certAttachment = ''
+  deviceForm.certAttachmentData = ''
+}
+async function openDeviceCreate() {
+  await loadOrgOptions()
+  deviceDialogMode.value = 'create'
+  resetDeviceForm()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope)
+  if (oid) deviceForm.orgId = oid
+  else if (isPlatformAdmin.value) deviceForm.orgId = effectiveOrgId() || orgOptions.value[0]?.id || ''
+  await loadDeviceDictOptions(deviceForm.orgId)
+  deviceDrawerVisible.value = true
+}
+async function openDeviceEdit(row) {
+  await loadOrgOptions()
+  deviceDialogMode.value = 'edit'
+  deviceFormTab.value = 'basic'
+  fillDeviceForm(row)
+  await loadDeviceDictOptions(deviceForm.orgId)
+  deviceDrawerVisible.value = true
+}
+async function submitDeviceForm() {
+  const form = deviceFormRef.value
+  if (!form) return
+  await form.validate(async (ok) => {
+    if (!ok) return
+    deviceSaving.value = true
+    try {
+      const scope = await resolveStaffOrgScope()
+      const oid = listOrgId(scope) || deviceForm.orgId
+      const payload = {
+        orgId: oid,
+        deviceCode: deviceForm.deviceCode?.trim() || null,
+        deviceName: deviceForm.deviceName.trim(),
+        spec: deviceForm.spec?.trim() || null,
+        model: deviceForm.model?.trim() || null,
+        unit: deviceForm.unit?.trim() || null,
+        serialNo: deviceForm.serialNo?.trim() || null,
+        deviceType: deviceForm.deviceType?.trim() || null,
+        installLocation: deviceForm.installLocation?.trim() || null,
+        areaName: deviceForm.areaName?.trim() || null,
+        capabilityParams: deviceForm.capabilityParams?.trim() || null,
+        enabledDate: deviceForm.enabledDate || null,
+        deviceStatus: deviceForm.deviceStatus || '空闲',
+        operatorId: deviceForm.operatorId || null,
+        manufacturerId: deviceForm.manufacturerId || null,
+        vendorId: deviceForm.vendorId || null,
+        brandName: deviceForm.brandName?.trim() || null,
+        countryName: deviceForm.countryName?.trim() || null,
+        deviceRegNo: deviceForm.deviceRegNo?.trim() || null,
+        productionDate: deviceForm.productionDate || null,
+        originalValue: deviceForm.originalValue != null && deviceForm.originalValue !== '' ? deviceForm.originalValue : null,
+        purchaseDate: deviceForm.purchaseDate || null,
+        deviceImages: JSON.stringify(deviceImageList.value.filter((x) => x?.dataUrl)),
+        maintainLogs: JSON.stringify(deviceMaintainLogList.value),
+        adverseEvents: JSON.stringify(deviceAdverseList.value),
+        maintainCycle: deviceForm.maintainCycle?.trim() || null,
+        maintainPlan: deviceForm.maintainPlan?.trim() || null,
+        lastMaintainAt: deviceForm.lastMaintainAt || null,
+        maintainExpireWarn: deviceForm.maintainExpireWarn?.trim() || null,
+        inspectCertNo: deviceForm.inspectCertNo?.trim() || null,
+        inspectValidUntil: deviceForm.inspectValidUntil || null,
+        certAttachment: deviceForm.certAttachment?.trim() || null,
+        certAttachmentData: deviceForm.certAttachmentData || null,
+        isActive: deviceForm.isActive,
+        remark: deviceForm.remark?.trim() || null
+      }
+      if (deviceDialogMode.value === 'edit') payload.id = deviceForm.id
+      await http.post('/md/devices', payload)
+      ElMessage.success(deviceDialogMode.value === 'edit' ? '设备已修改' : '设备已新增')
+      deviceDrawerVisible.value = false
+      await loadDevicePage()
+    } finally {
+      deviceSaving.value = false
+    }
+  })
+}
+async function deleteDeviceRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除设备「${row.deviceCode} ${row.deviceName}」？`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  await http.delete(`/md/devices/${row.id}`)
+  ElMessage.success('已删除')
+  await loadDevicePage()
+}
+
+/** 单位维护（仿院区维护） */
+const unitLoading = ref(false)
+const unitRows = ref([])
+const unitSelected = ref([])
+const unitTableRef = ref(null)
+const unitPanelRef = ref(null)
+const unitKeyword = ref('')
+const unitPage = ref(1)
+const unitPageSize = ref(10)
+const unitTotal = ref(0)
+const unitDrawerVisible = ref(false)
+const unitDialogMode = ref('create')
+const unitSaving = ref(false)
+const unitFormRef = ref(null)
+const unitForm = reactive({
+  id: '',
+  orgId: '',
+  unitCode: '',
+  unitName: '',
+  isActive: 1,
+  remark: ''
+})
+const unitRules = {
+  orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
+  unitName: [{ required: true, message: '请输入单位名称', trigger: 'blur' }]
+}
+function unitIndex(i) {
+  return (unitPage.value - 1) * unitPageSize.value + i + 1
+}
+function searchUnitPage() {
+  unitPage.value = 1
+  loadUnitPage()
+}
+function onUnitPageSizeChange() {
+  unitPage.value = 1
+  loadUnitPage()
+}
+function onUnitSelectionChange(rows) { unitSelected.value = rows }
+function onUnitRowDblclick(row) {
+  unitTableRef.value?.toggleRowSelection(row, !unitSelected.value.some((r) => r.id === row.id))
+}
+function unitRowClassName({ row }) {
+  return unitSelected.value.some((r) => r.id === row.id) ? 'org-row-selected' : ''
+}
+async function loadUnitPage() {
+  unitLoading.value = true
+  try {
+    const scope = await resolveStaffOrgScope()
+    await loadOrgOptions()
+    const kw = unitKeyword.value?.trim() || undefined
+    const params = { page: Number(unitPage.value) || 1, size: Number(unitPageSize.value) || 10 }
+    if (kw) params.keyword = kw
+    const oid = listOrgId(scope)
+    if (oid) params.orgId = oid
+    const res = await http.get('/md/units', { params })
+    const records = res?.data?.records
+    const rows = (Array.isArray(records) ? records : []).map((r) => ({
+      ...r,
+      orgLabel: orgLabelById(r.orgId) || ''
+    }))
+    unitTotal.value = Number(res?.data?.total || rows.length || 0)
+    unitRows.value = rows
+    unitSelected.value = []
+  } catch (e) {
+    ElMessage.error(e?.message || '单位列表加载失败')
+  } finally {
+    unitLoading.value = false
+  }
+}
+function fillUnitForm(row) {
+  unitForm.id = row?.id || ''
+  unitForm.orgId = row?.orgId || ''
+  unitForm.unitCode = row?.unitCode || ''
+  unitForm.unitName = row?.unitName || ''
+  unitForm.isActive = row?.isActive ?? 1
+  unitForm.remark = row?.remark || ''
+}
+function resetUnitForm() {
+  fillUnitForm(null)
+  unitFormRef.value?.clearValidate?.()
+}
+async function openUnitCreate() {
+  await loadOrgOptions()
+  unitDialogMode.value = 'create'
+  resetUnitForm()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope)
+  if (oid) unitForm.orgId = oid
+  else if (isPlatformAdmin.value) unitForm.orgId = effectiveOrgId() || orgOptions.value[0]?.id || ''
+  unitDrawerVisible.value = true
+}
+async function openUnitEdit(row) {
+  await loadOrgOptions()
+  unitDialogMode.value = 'edit'
+  fillUnitForm(row)
+  unitDrawerVisible.value = true
+}
+async function submitUnitForm() {
+  const form = unitFormRef.value
+  if (!form) return
+  await form.validate(async (ok) => {
+    if (!ok) return
+    unitSaving.value = true
+    try {
+      const scope = await resolveStaffOrgScope()
+      const oid = listOrgId(scope) || unitForm.orgId
+      const payload = {
+        orgId: oid,
+        unitCode: unitForm.unitCode?.trim() || null,
+        unitName: unitForm.unitName.trim(),
+        isActive: unitForm.isActive,
+        remark: unitForm.remark?.trim() || null
+      }
+      if (unitDialogMode.value === 'edit') payload.id = unitForm.id
+      await http.post('/md/units', payload)
+      ElMessage.success(unitDialogMode.value === 'edit' ? '单位已修改' : '单位已新增')
+      unitDrawerVisible.value = false
+      await loadUnitPage()
+    } catch {
+      await loadUnitPage()
+    } finally {
+      unitSaving.value = false
+    }
+  })
+}
+async function deleteUnitRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除单位「${row.unitCode} ${row.unitName}」？`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  await http.delete(`/md/units/${row.id}`)
+  ElMessage.success('已删除')
+  await loadUnitPage()
+}
+
 function ensureData(name) {
   if (name === 'org') loadOrg()
   else if (name === 'staffs') loadStaff()
   else if (name === 'perms') loadPerms()
   else if (name === 'campuses') loadCampusPage()
   else if (name === 'warehouses') loadWarehousePage()
+  else if (name === 'vendors') loadVendorPage()
+  else if (name === 'manufacturers') loadMfrPage()
+  else if (name === 'devices') loadDevicePage()
+  else if (name === 'units') loadUnitPage()
   else if (name === 'depts') {
     loadDeptTree()
     loadDeptPage()
@@ -3705,11 +5691,163 @@ onMounted(async () => {
   justify-content: center;
   padding: 12px 16px 16px;
 }
+.staff-form-tabs {
+  margin: 0 0 8px;
+}
+.staff-form-tabs :deep(.el-tabs__header) {
+  margin-bottom: 8px;
+}
+.staff-form-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+}
+.staff-train-pane {
+  min-height: 200px;
+}
 .staff-form-grid :deep(.el-form-item) {
   margin-bottom: 14px;
 }
 .staff-form-grid :deep(.el-input-number .el-input__inner) {
   text-align: left;
+}
+.vendor-type-lights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+.vendor-type-light {
+  border: 1px solid #dcdfe6;
+  background: #f5f7fa;
+  color: #606266;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.vendor-type-light:hover {
+  border-color: var(--brand, #1aa6a0);
+  color: var(--brand, #1aa6a0);
+}
+.vendor-type-light.is-on {
+  background: var(--brand, #1aa6a0);
+  border-color: var(--brand, #1aa6a0);
+  color: #fff;
+}
+.device-cert-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.device-cert-name {
+  font-size: 13px;
+  color: #606266;
+  word-break: break-all;
+}
+.device-asset-card-wrap {
+  padding: 4px 0 8px;
+}
+.device-asset-card-print {
+  max-width: 420px;
+}
+.device-asset-card {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #fff;
+  border: 1px solid #c0c4cc;
+}
+.device-asset-card th,
+.device-asset-card td {
+  border: 1px solid #c0c4cc;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #303133;
+  vertical-align: middle;
+  line-height: 1.35;
+}
+.device-asset-card__title {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 8px;
+}
+.device-asset-card__label {
+  width: 26%;
+  background: #fafafa;
+  color: #606266;
+  white-space: nowrap;
+}
+.device-asset-card__value {
+  width: 44%;
+  word-break: break-all;
+}
+.device-asset-card__qr {
+  width: 30%;
+  text-align: center;
+  vertical-align: middle;
+  background: #fff;
+  padding: 4px;
+}
+.device-asset-card__qr img {
+  width: 88px;
+  height: 88px;
+  display: inline-block;
+}
+.device-asset-card__qr-empty {
+  color: #c0c4cc;
+  font-size: 11px;
+}
+.device-asset-card__hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+.device-ext-pane {
+  padding: 4px 0 8px;
+}
+.device-ext-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.device-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.device-image-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+.device-image-item img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+  background: #f5f7fa;
+}
+.device-image-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #606266;
+}
+.device-image-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .auth-toolbar {
   display: flex;
@@ -3935,5 +6073,22 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.staff-import-ok {
+  color: #67c23a;
+  font-weight: 600;
+}
+.staff-import-fail {
+  color: #f56c6c;
+  font-weight: 600;
+}
+.staff-import-progress {
+  margin: 0 0 12px;
+}
+.staff-import-progress-text {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted, #5a7380);
+  text-align: center;
 }
 </style>

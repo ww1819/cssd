@@ -170,7 +170,7 @@
 
       <!-- 多页签表头（参考云会计风格） -->
       <div class="tabbar">
-        <button type="button" class="tab-home" title="工位大厅" @click="goHome">
+        <button type="button" class="tab-home" title="首页" @click="goHome">
           <el-icon :size="16"><HomeFilled /></el-icon>
         </button>
         <div class="tab-scroll">
@@ -340,9 +340,12 @@ const mdTitles = {
   depts: '科室维护',
   staffs: '人员档案',
   perms: '权限管理',
+  vendors: '供应商维护',
+  manufacturers: '生产厂家维护',
   instruments: '器械字典',
   templates: '包模板',
-  devices: '设备',
+  devices: '设备维护',
+  units: '单位维护',
   'sys-config': '系统配置'
 }
 
@@ -374,7 +377,7 @@ const deptPaths = [
 ]
 
 const allMenus = [
-  { path: '/station', label: '工位大厅', icon: Monitor, authId: 'station' },
+  { path: '/station', label: '首页', icon: Monitor, authId: 'station' },
   {
     path: '/supply',
     label: '供应中心',
@@ -483,9 +486,12 @@ const allMenus = [
         title: '业务字典',
         icon: Collection,
         items: [
+          { label: '供应商维护', tab: 'vendors', authId: 'md-vendors' },
+          { label: '生产厂家维护', tab: 'manufacturers', authId: 'md-manufacturers' },
           { label: '器械字典', tab: 'instruments', authId: 'md-instruments' },
           { label: '包模板', tab: 'templates', authId: 'md-templates' },
-          { label: '设备', tab: 'devices', authId: 'md-devices' }
+          { label: '设备维护', tab: 'devices', authId: 'md-devices' },
+          { label: '单位维护', tab: 'units', authId: 'md-units' }
         ]
       },
       {
@@ -549,7 +555,7 @@ let leaveTimer = null
 function defaultHomeTab() {
   const list = menus.value
   const first = list[0]
-  if (!first) return { key: '/station', path: '/station', query: {}, title: '工位大厅' }
+  if (!first) return { key: '/station', path: '/station', query: {}, title: '首页' }
   if (first.groups?.length) {
     const sub = first.groups[0]?.items?.[0]
     if (sub) {
@@ -573,7 +579,7 @@ const roleMap = { admin: '管理员', nurse_lead: '护士长', operator: '操作
 const roleLabel = computed(() => roleMap[staff.value?.role] || staff.value?.role)
 
 const pathTitles = {
-  '/station': '工位大厅',
+  '/station': '首页',
   '/pack': '包装管理',
   '/ster': '发放管理',
   '/dist': '入库发放',

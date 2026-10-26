@@ -23,6 +23,7 @@ import com.cssd.infra.entity.CssdPackMaterial;
 import com.cssd.infra.entity.CssdPackTemplate;
 import com.cssd.infra.entity.CssdPackTemplateItem;
 import com.cssd.infra.entity.CssdStaff;
+import com.cssd.infra.entity.CssdUnit;
 import com.cssd.infra.entity.CssdVendor;
 import com.cssd.infra.entity.CssdWarehouse;
 import com.cssd.infra.mapper.CssdAreaMapper;
@@ -41,6 +42,7 @@ import com.cssd.infra.mapper.CssdPackMaterialMapper;
 import com.cssd.infra.mapper.CssdPackTemplateItemMapper;
 import com.cssd.infra.mapper.CssdPackTemplateMapper;
 import com.cssd.infra.mapper.CssdStaffMapper;
+import com.cssd.infra.mapper.CssdUnitMapper;
 import com.cssd.infra.mapper.CssdVendorMapper;
 import com.cssd.security.LoginUser;
 import com.cssd.security.OrgScope;
@@ -57,6 +59,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/md")
@@ -73,6 +77,7 @@ public class MdController {
     private final CssdPackTemplateMapper templateMapper;
     private final CssdPackTemplateItemMapper templateItemMapper;
     private final CssdDeviceMapper deviceMapper;
+    private final CssdUnitMapper unitMapper;
     private final CssdDeviceProgramMapper programMapper;
     private final CssdBasketMapper basketMapper;
     private final CssdCartMapper cartMapper;
@@ -88,6 +93,7 @@ public class MdController {
                         CssdManufacturerMapper manufacturerMapper, CssdPackMaterialMapper materialMapper,
                         CssdInstrumentMapper instrumentMapper, CssdPackTemplateMapper templateMapper,
                         CssdPackTemplateItemMapper templateItemMapper, CssdDeviceMapper deviceMapper,
+                        CssdUnitMapper unitMapper,
                         CssdDeviceProgramMapper programMapper, CssdBasketMapper basketMapper, CssdCartMapper cartMapper,
                         CssdOnceItemMapper onceItemMapper, CssdOnceLotMapper onceLotMapper,
                         CssdWarehouseMapper warehouseMapper,
@@ -104,6 +110,7 @@ public class MdController {
         this.templateMapper = templateMapper;
         this.templateItemMapper = templateItemMapper;
         this.deviceMapper = deviceMapper;
+        this.unitMapper = unitMapper;
         this.programMapper = programMapper;
         this.basketMapper = basketMapper;
         this.cartMapper = cartMapper;
@@ -163,7 +170,7 @@ public class MdController {
         return ApiResult.ok();
     }
 
-    /** 保存组织机构菜单授权 */
+    /** 保存组织机构菜单授权（并同步到机构管理员账号，否则登录侧栏仍读旧 menu_auth） */
     @PutMapping("/campuses/{id}/menu-auth")
     public ApiResult<?> saveCampusMenuAuth(@PathVariable String id, @RequestBody Map<String, Object> body) {
         requireOrgAccess(id);
@@ -173,9 +180,11 @@ public class MdController {
         }
         @SuppressWarnings("unchecked")
         List<String> menuKeys = body == null ? null : (List<String>) body.get("menuKeys");
-        campus.setMenuAuth(orgAdminInitService.toMenuAuthJson(menuKeys));
+        List<String> keys = OrgAdminInitService.ensureStation(menuKeys);
+        campus.setMenuAuth(orgAdminInitService.toMenuAuthJson(keys));
         campusMapper.updateById(campus);
-        return ApiResult.ok(Map.of("id", id, "menuAuth", orgAdminInitService.parseMenuKeys(campus.getMenuAuth())));
+        orgAdminInitService.syncOrgAdminMenuAuth(id, keys);
+        return ApiResult.ok(Map.of("id", id, "menuAuth", keys));
     }
 
     /** 组织机构初始化：生成管理员账号 cssd_01 / cssd_02…（密码同账号），并绑定菜单授权 */
@@ -538,26 +547,148 @@ public class MdController {
         return ApiResult.ok();
     }
 
+    /** 供应商：按组织机构隔离 */
     @GetMapping("/vendors")
     public ApiResult<?> vendors(PageQuery q) {
-        return page(vendorMapper, q, "vendor_code", "vendor_name", "name_pinyin");
+        QueryWrapper<CssdVendor> w = new QueryWrapper<CssdVendor>().orderByDesc("created_at");
+        String scope = scopedOrgId();
+        if (scope != null) {
+            w.eq("org_id", scope);
+        } else if (q.getOrgId() != null && !q.getOrgId().isBlank()) {
+            w.eq("org_id", q.getOrgId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            String kw = q.getKeyword();
+            w.and(x -> x.like("vendor_code", kw).or().like("vendor_name", kw)
+                    .or().like("short_code", kw).or().like("name_pinyin", kw)
+                    .or().like("social_credit_code", kw).or().like("legal_person", kw)
+                    .or().like("salesman", kw).or().like("contact_phone", kw));
+        }
+        long page = q.getPage() < 1 ? 1 : q.getPage();
+        long size = q.getSize() < 1 ? 20 : q.getSize();
+        return ApiResult.ok(vendorMapper.selectPage(new Page<>(page, size), w));
     }
 
     @PostMapping("/vendors")
     public ApiResult<CssdVendor> saveVendor(@RequestBody CssdVendor e) {
-        e.setNamePinyin(PinyinCodeUtil.initials(e.getVendorName()));
+        String scope = scopedOrgId();
+        if (scope != null) {
+            e.setOrgId(scope);
+        }
+        if (e.getOrgId() == null || e.getOrgId().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择所属组织机构");
+        }
+        requireOrgAccess(e.getOrgId());
+        CssdCampus org = campusMapper.selectById(e.getOrgId());
+        if (org != null) {
+            e.setOrgCode(org.getCampusCode());
+        }
+        String initials = PinyinCodeUtil.initials(e.getVendorName());
+        e.setNamePinyin(initials);
+        // 简码：按名称首字母大写；前端可预填，保存时以名称为准兜底
+        if (e.getShortCode() == null || e.getShortCode().isBlank()) {
+            e.setShortCode(initials == null || initials.isBlank() ? null : initials.toUpperCase());
+        } else {
+            e.setShortCode(e.getShortCode().trim().toUpperCase());
+        }
+        boolean creating = e.getId() == null || e.getId().isBlank();
+        String code = e.getVendorCode() == null ? "" : e.getVendorCode().trim();
+        if (!creating) {
+            // 已存在记录不允许改编码
+            CssdVendor old = vendorMapper.selectById(e.getId());
+            if (old == null) throw new com.cssd.common.BizException(404, "供应商不存在");
+            code = old.getVendorCode();
+        } else if (code.isBlank()) {
+            code = nextOrgSeqCode(e.getOrgId(), "G", vendorMapper, "vendor_code");
+        } else {
+            QueryWrapper<CssdVendor> dup = new QueryWrapper<CssdVendor>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("vendor_code", code);
+            if (vendorMapper.selectCount(dup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下供应商编码已存在：" + code);
+            }
+        }
+        e.setVendorCode(code);
         return ApiResult.ok(upsert(vendorMapper, e, "vendor"));
     }
 
+    @DeleteMapping("/vendors/{id}")
+    public ApiResult<Void> delVendor(@PathVariable String id) {
+        CssdVendor row = vendorMapper.selectById(id);
+        if (row != null) requireOrgAccess(row.getOrgId());
+        vendorMapper.deleteById(id);
+        return ApiResult.ok();
+    }
+
+    /** 生产厂家：按组织机构隔离 */
     @GetMapping("/manufacturers")
     public ApiResult<?> manufacturers(PageQuery q) {
-        return page(manufacturerMapper, q, "mfr_code", "mfr_name", "name_pinyin");
+        QueryWrapper<CssdManufacturer> w = new QueryWrapper<CssdManufacturer>().orderByDesc("created_at");
+        String scope = scopedOrgId();
+        if (scope != null) {
+            w.eq("org_id", scope);
+        } else if (q.getOrgId() != null && !q.getOrgId().isBlank()) {
+            w.eq("org_id", q.getOrgId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            String kw = q.getKeyword();
+            w.and(x -> x.like("mfr_code", kw).or().like("mfr_name", kw)
+                    .or().like("short_code", kw).or().like("name_pinyin", kw)
+                    .or().like("social_credit_code", kw).or().like("legal_person", kw)
+                    .or().like("salesman", kw).or().like("contact_phone", kw));
+        }
+        long page = q.getPage() < 1 ? 1 : q.getPage();
+        long size = q.getSize() < 1 ? 20 : q.getSize();
+        return ApiResult.ok(manufacturerMapper.selectPage(new Page<>(page, size), w));
     }
 
     @PostMapping("/manufacturers")
     public ApiResult<CssdManufacturer> saveMfr(@RequestBody CssdManufacturer e) {
-        e.setNamePinyin(PinyinCodeUtil.initials(e.getMfrName()));
+        String scope = scopedOrgId();
+        if (scope != null) {
+            e.setOrgId(scope);
+        }
+        if (e.getOrgId() == null || e.getOrgId().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择所属组织机构");
+        }
+        requireOrgAccess(e.getOrgId());
+        CssdCampus org = campusMapper.selectById(e.getOrgId());
+        if (org != null) {
+            e.setOrgCode(org.getCampusCode());
+        }
+        String initials = PinyinCodeUtil.initials(e.getMfrName());
+        e.setNamePinyin(initials);
+        if (e.getShortCode() == null || e.getShortCode().isBlank()) {
+            e.setShortCode(initials == null || initials.isBlank() ? null : initials.toUpperCase());
+        } else {
+            e.setShortCode(e.getShortCode().trim().toUpperCase());
+        }
+        boolean creating = e.getId() == null || e.getId().isBlank();
+        String code = e.getMfrCode() == null ? "" : e.getMfrCode().trim();
+        if (!creating) {
+            CssdManufacturer old = manufacturerMapper.selectById(e.getId());
+            if (old == null) throw new com.cssd.common.BizException(404, "生产厂家不存在");
+            code = old.getMfrCode();
+        } else if (code.isBlank()) {
+            code = nextOrgSeqCode(e.getOrgId(), "S", manufacturerMapper, "mfr_code");
+        } else {
+            QueryWrapper<CssdManufacturer> dup = new QueryWrapper<CssdManufacturer>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("mfr_code", code);
+            if (manufacturerMapper.selectCount(dup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下生产厂家编码已存在：" + code);
+            }
+        }
+        e.setMfrCode(code);
         return ApiResult.ok(upsert(manufacturerMapper, e, "manufacturer"));
+    }
+
+    @DeleteMapping("/manufacturers/{id}")
+    public ApiResult<Void> delMfr(@PathVariable String id) {
+        CssdManufacturer row = manufacturerMapper.selectById(id);
+        if (row != null) requireOrgAccess(row.getOrgId());
+        manufacturerMapper.deleteById(id);
+        return ApiResult.ok();
     }
 
     @GetMapping("/materials")
@@ -616,15 +747,201 @@ public class MdController {
         return ApiResult.ok(e);
     }
 
+    /** 设备：按组织机构隔离 */
     @GetMapping("/devices")
     public ApiResult<?> devices(PageQuery q) {
-        return page(deviceMapper, q, "device_code", "device_name", "name_pinyin", "device_no");
+        QueryWrapper<CssdDevice> w = new QueryWrapper<CssdDevice>().orderByDesc("created_at");
+        String scope = scopedOrgId();
+        if (scope != null) {
+            w.eq("org_id", scope);
+        } else if (q.getOrgId() != null && !q.getOrgId().isBlank()) {
+            w.eq("org_id", q.getOrgId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            String kw = q.getKeyword();
+            w.and(x -> x.like("device_code", kw).or().like("device_name", kw)
+                    .or().like("name_pinyin", kw).or().like("device_no", kw)
+                    .or().like("serial_no", kw).or().like("device_type", kw)
+                    .or().like("model", kw).or().like("install_location", kw)
+                    .or().like("area_name", kw).or().like("operator_name", kw)
+                    .or().like("manufacturer_name", kw).or().like("vendor_name", kw)
+                    .or().like("brand_name", kw).or().like("country_name", kw)
+                    .or().like("device_reg_no", kw));
+        }
+        long page = q.getPage() < 1 ? 1 : q.getPage();
+        long size = q.getSize() < 1 ? 20 : q.getSize();
+        return ApiResult.ok(deviceMapper.selectPage(new Page<>(page, size), w));
     }
 
     @PostMapping("/devices")
     public ApiResult<CssdDevice> saveDevice(@RequestBody CssdDevice e) {
+        String scope = scopedOrgId();
+        if (scope != null) {
+            e.setOrgId(scope);
+        }
+        if (e.getOrgId() == null || e.getOrgId().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择所属组织机构");
+        }
+        requireOrgAccess(e.getOrgId());
+        CssdCampus org = campusMapper.selectById(e.getOrgId());
+        if (org != null) {
+            e.setOrgCode(org.getCampusCode());
+        }
         e.setNamePinyin(PinyinCodeUtil.initials(e.getDeviceName()));
+        resolveDeviceRefs(e);
+        boolean creating = e.getId() == null || e.getId().isBlank();
+        String code = e.getDeviceCode() == null ? "" : e.getDeviceCode().trim();
+        if (!creating) {
+            CssdDevice old = deviceMapper.selectById(e.getId());
+            if (old == null) throw new com.cssd.common.BizException(404, "设备不存在");
+            code = old.getDeviceCode();
+            // 保留业务字段，避免台账编辑冲掉
+            if (e.getDeviceKind() == null || e.getDeviceKind().isBlank()) e.setDeviceKind(old.getDeviceKind());
+            if (e.getDeviceNo() == null || e.getDeviceNo().isBlank()) e.setDeviceNo(old.getDeviceNo());
+            if (e.getSterTempClass() == null || e.getSterTempClass().isBlank()) e.setSterTempClass(old.getSterTempClass());
+            // 未重新上传附件时保留原证书内容
+            if ((e.getCertAttachmentData() == null || e.getCertAttachmentData().isBlank())
+                    && e.getCertAttachment() != null && !e.getCertAttachment().isBlank()
+                    && e.getCertAttachment().equals(old.getCertAttachment())) {
+                e.setCertAttachmentData(old.getCertAttachmentData());
+            }
+        } else if (code.isBlank()) {
+            code = nextOrgSeqCode(e.getOrgId(), "D", deviceMapper, "device_code");
+        } else {
+            QueryWrapper<CssdDevice> dup = new QueryWrapper<CssdDevice>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("device_code", code);
+            if (deviceMapper.selectCount(dup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下设备编码已存在：" + code);
+            }
+        }
+        e.setDeviceCode(code);
+        if (e.getDeviceNo() == null || e.getDeviceNo().isBlank()) {
+            e.setDeviceNo(code);
+        }
+        if (e.getDeviceStatus() == null || e.getDeviceStatus().isBlank()) {
+            e.setDeviceStatus("空闲");
+        }
+        if (e.getDeviceKind() == null || e.getDeviceKind().isBlank()) {
+            e.setDeviceKind(guessDeviceKind(e.getDeviceType()));
+        }
         return ApiResult.ok(upsert(deviceMapper, e, "device"));
+    }
+
+    /** 按本机构字典回填厂家/供应商/责任人，禁止跨机构引用 */
+    private void resolveDeviceRefs(CssdDevice e) {
+        if (e.getManufacturerId() != null && !e.getManufacturerId().isBlank()) {
+            CssdManufacturer mfr = manufacturerMapper.selectById(e.getManufacturerId());
+            if (mfr == null) throw new com.cssd.common.BizException(400, "生产厂家不存在");
+            if (mfr.getOrgId() != null && !mfr.getOrgId().equals(e.getOrgId())) {
+                throw new com.cssd.common.BizException(400, "生产厂家不属于当前组织机构");
+            }
+            e.setManufacturerName(mfr.getMfrName());
+        } else {
+            e.setManufacturerId(null);
+            e.setManufacturerName(null);
+        }
+        if (e.getVendorId() != null && !e.getVendorId().isBlank()) {
+            CssdVendor vendor = vendorMapper.selectById(e.getVendorId());
+            if (vendor == null) throw new com.cssd.common.BizException(400, "供应商不存在");
+            if (vendor.getOrgId() != null && !vendor.getOrgId().equals(e.getOrgId())) {
+                throw new com.cssd.common.BizException(400, "供应商不属于当前组织机构");
+            }
+            e.setVendorName(vendor.getVendorName());
+        } else {
+            e.setVendorId(null);
+            e.setVendorName(null);
+        }
+        if (e.getOperatorId() != null && !e.getOperatorId().isBlank()) {
+            CssdStaff staff = staffMapper.selectById(e.getOperatorId());
+            if (staff == null) throw new com.cssd.common.BizException(400, "操作责任人不存在");
+            if (staff.getOrgId() != null && !staff.getOrgId().equals(e.getOrgId())) {
+                throw new com.cssd.common.BizException(400, "操作责任人不属于当前组织机构");
+            }
+            e.setOperatorName(staff.getStaffName());
+        } else {
+            e.setOperatorId(null);
+            e.setOperatorName(null);
+        }
+    }
+
+    @DeleteMapping("/devices/{id}")
+    public ApiResult<Void> delDevice(@PathVariable String id) {
+        CssdDevice row = deviceMapper.selectById(id);
+        if (row != null) requireOrgAccess(row.getOrgId());
+        deviceMapper.deleteById(id);
+        return ApiResult.ok();
+    }
+
+    /** 单位：按组织机构隔离 */
+    @GetMapping("/units")
+    public ApiResult<?> units(PageQuery q) {
+        QueryWrapper<CssdUnit> w = new QueryWrapper<CssdUnit>().orderByDesc("created_at");
+        String scope = scopedOrgId();
+        if (scope != null) {
+            w.eq("org_id", scope);
+        } else if (q.getOrgId() != null && !q.getOrgId().isBlank()) {
+            w.eq("org_id", q.getOrgId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            String kw = q.getKeyword();
+            w.and(x -> x.like("unit_code", kw).or().like("unit_name", kw).or().like("name_pinyin", kw));
+        }
+        long page = q.getPage() < 1 ? 1 : q.getPage();
+        long size = q.getSize() < 1 ? 20 : q.getSize();
+        return ApiResult.ok(unitMapper.selectPage(new Page<>(page, size), w));
+    }
+
+    @PostMapping("/units")
+    public ApiResult<CssdUnit> saveUnit(@RequestBody CssdUnit e) {
+        String scope = scopedOrgId();
+        if (scope != null) {
+            e.setOrgId(scope);
+        }
+        if (e.getOrgId() == null || e.getOrgId().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择所属组织机构");
+        }
+        requireOrgAccess(e.getOrgId());
+        CssdCampus org = campusMapper.selectById(e.getOrgId());
+        if (org != null) {
+            e.setOrgCode(org.getCampusCode());
+        }
+        e.setNamePinyin(PinyinCodeUtil.initials(e.getUnitName()));
+        boolean creating = e.getId() == null || e.getId().isBlank();
+        String code = e.getUnitCode() == null ? "" : e.getUnitCode().trim();
+        if (!creating) {
+            CssdUnit old = unitMapper.selectById(e.getId());
+            if (old == null) throw new com.cssd.common.BizException(404, "单位不存在");
+            code = old.getUnitCode();
+        } else if (code.isBlank()) {
+            code = nextOrgSeqCode(e.getOrgId(), "D", unitMapper, "unit_code");
+        } else {
+            QueryWrapper<CssdUnit> dup = new QueryWrapper<CssdUnit>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("unit_code", code);
+            if (unitMapper.selectCount(dup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下单位编码已存在：" + code);
+            }
+        }
+        e.setUnitCode(code);
+        return ApiResult.ok(upsert(unitMapper, e, "unit"));
+    }
+
+    @DeleteMapping("/units/{id}")
+    public ApiResult<Void> delUnit(@PathVariable String id) {
+        CssdUnit row = unitMapper.selectById(id);
+        if (row != null) requireOrgAccess(row.getOrgId());
+        unitMapper.deleteById(id);
+        return ApiResult.ok();
+    }
+
+    private static String guessDeviceKind(String deviceType) {
+        if (deviceType == null || deviceType.isBlank()) return "washer";
+        String t = deviceType.trim();
+        if (t.contains("灭菌") || t.equalsIgnoreCase("sterilizer")) return "sterilizer";
+        if (t.contains("封口") || t.equalsIgnoreCase("sealer")) return "sealer";
+        if (t.contains("清洗") || t.equalsIgnoreCase("washer")) return "washer";
+        return "washer";
     }
 
     @GetMapping("/programs")
@@ -689,6 +1006,42 @@ public class MdController {
     @PostMapping("/once-lots")
     public ApiResult<CssdOnceLot> saveLot(@RequestBody CssdOnceLot e) {
         return ApiResult.ok(upsert(onceLotMapper, e, "once_lot"));
+    }
+
+    /** 名称转大写拼音首字母（简码） */
+    @GetMapping("/name-initials")
+    public ApiResult<?> nameInitials(@org.springframework.web.bind.annotation.RequestParam(required = false) String name) {
+        String initials = PinyinCodeUtil.initials(name == null ? "" : name);
+        if (initials == null) initials = "";
+        return ApiResult.ok(Map.of("initials", initials.toUpperCase()));
+    }
+
+    /**
+     * 机构内按前缀自增编码：G000001 / S000001。
+     * 仅统计「前缀 + 纯数字」形式，忽略手工录入的其它编码。
+     */
+    private <T> String nextOrgSeqCode(String orgId, String prefix, BaseMapper<T> mapper, String codeCol) {
+        QueryWrapper<T> w = new QueryWrapper<T>()
+                .select(codeCol)
+                .eq("org_id", orgId)
+                .likeRight(codeCol, prefix);
+        List<Map<String, Object>> rows = mapper.selectMaps(w);
+        Pattern p = Pattern.compile("^" + Pattern.quote(prefix) + "(\\d+)$", Pattern.CASE_INSENSITIVE);
+        int max = 0;
+        for (Map<String, Object> row : rows) {
+            if (row == null || row.isEmpty()) continue;
+            Object v = row.values().iterator().next();
+            if (v == null) continue;
+            Matcher m = p.matcher(String.valueOf(v).trim());
+            if (m.matches()) {
+                try {
+                    max = Math.max(max, Integer.parseInt(m.group(1)));
+                } catch (NumberFormatException ignored) {
+                    // skip
+                }
+            }
+        }
+        return prefix + String.format("%06d", max + 1);
     }
 
     private <T extends BaseEntity> ApiResult<?> page(BaseMapper<T> mapper, PageQuery q, String... cols) {

@@ -113,12 +113,31 @@ public class OrgAdminInitService {
             CssdAuthAccount acc = accountMapper.selectOne(new LambdaQueryWrapper<CssdAuthAccount>()
                     .eq(CssdAuthAccount::getStaffId, existing.getId())
                     .last("limit 1"));
-            List<String> existingMenus = acc == null ? List.of(DEFAULT_MENU) : parseMenuKeys(acc.getMenuAuth());
-            // 回填机构授权，便于再次打开「授权」弹窗回显
-            if ((campus.getMenuAuth() == null || campus.getMenuAuth().isBlank()) && acc != null
-                    && acc.getMenuAuth() != null && !acc.getMenuAuth().isBlank()) {
-                campus.setMenuAuth(acc.getMenuAuth());
+            // 入参有授权则写回机构并同步管理员账号；否则用机构已存授权同步账号
+            List<String> incoming = ensureStation(menuKeys);
+            List<String> existingMenus;
+            if (incoming.size() > 1) {
+                String json = toMenuAuthJson(incoming);
+                campus.setMenuAuth(json);
                 campusMapper.updateById(campus);
+                if (acc != null) {
+                    acc.setMenuAuth(json);
+                    accountMapper.updateById(acc);
+                }
+                existingMenus = incoming;
+            } else if (campus.getMenuAuth() != null && !campus.getMenuAuth().isBlank()) {
+                existingMenus = parseMenuKeys(campus.getMenuAuth());
+                if (acc != null) {
+                    acc.setMenuAuth(toMenuAuthJson(existingMenus));
+                    accountMapper.updateById(acc);
+                }
+            } else {
+                existingMenus = acc == null ? List.of(DEFAULT_MENU) : parseMenuKeys(acc.getMenuAuth());
+                // 回填机构授权，便于再次打开「授权」弹窗回显
+                if (acc != null && acc.getMenuAuth() != null && !acc.getMenuAuth().isBlank()) {
+                    campus.setMenuAuth(acc.getMenuAuth());
+                    campusMapper.updateById(campus);
+                }
             }
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("alreadyInitialized", true);
@@ -343,6 +362,35 @@ public class OrgAdminInitService {
         @SuppressWarnings("unchecked")
         List<String> keys = (List<String>) saved.get("menuAuth");
         return keys;
+    }
+
+    /**
+     * 将机构菜单授权同步到该机构初始化管理员账号（cssd_xx）。
+     * 登录侧栏读的是 cssd_auth_account.menu_auth，仅改 campus.menu_auth 不会生效。
+     */
+    @Transactional
+    public void syncOrgAdminMenuAuth(String campusId, List<String> menuKeys) {
+        if (campusId == null || campusId.isBlank()) return;
+        CssdStaff admin = findOrgAdminStaff(campusId);
+        if (admin == null) return;
+        CssdAuthAccount acc = findAccountByStaffId(admin.getId());
+        if (acc == null) return;
+        acc.setMenuAuth(toMenuAuthJson(menuKeys));
+        accountMapper.updateById(acc);
+    }
+
+    /** 查找机构初始化管理员：remark=ORG:{id}，否则 org_id + cssd_* */
+    public CssdStaff findOrgAdminStaff(String campusId) {
+        if (campusId == null || campusId.isBlank()) return null;
+        String remarkTag = ORG_REMARK_PREFIX + campusId;
+        CssdStaff admin = staffMapper.selectOne(new LambdaQueryWrapper<CssdStaff>()
+                .eq(CssdStaff::getRemark, remarkTag)
+                .last("limit 1"));
+        if (admin != null) return admin;
+        return staffMapper.selectOne(new LambdaQueryWrapper<CssdStaff>()
+                .eq(CssdStaff::getOrgId, campusId)
+                .likeRight(CssdStaff::getStaffNo, "cssd_")
+                .last("limit 1"));
     }
 
     private static List<String> normalizeIdList(List<String> ids) {
