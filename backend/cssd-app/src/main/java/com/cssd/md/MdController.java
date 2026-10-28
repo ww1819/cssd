@@ -702,25 +702,214 @@ public class MdController {
         return ApiResult.ok(upsert(materialMapper, e, "pack_material"));
     }
 
+    /** 器械基础档案：按组织机构隔离 */
     @GetMapping("/instruments")
     public ApiResult<?> instruments(PageQuery q) {
-        return page(instrumentMapper, q, "instrument_code", "instrument_name", "name_pinyin");
+        QueryWrapper<CssdInstrument> w = new QueryWrapper<CssdInstrument>().orderByDesc("created_at");
+        String scope = scopedOrgId();
+        if (scope != null) {
+            w.eq("org_id", scope);
+        } else if (q.getOrgId() != null && !q.getOrgId().isBlank()) {
+            w.eq("org_id", q.getOrgId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            String kw = q.getKeyword();
+            w.and(x -> x.like("instrument_code", kw).or().like("instrument_name", kw)
+                    .or().like("short_code", kw).or().like("name_pinyin", kw)
+                    .or().like("alias_name", kw).or().like("english_name", kw)
+                    .or().like("brand_name", kw).or().like("spec", kw).or().like("model", kw)
+                    .or().like("register_no", kw).or().like("barcode", kw).or().like("udi", kw)
+                    .or().like("manufacturer_name", kw).or().like("vendor_name", kw)
+                    .or().like("instrument_category", kw).or().like("instrument_type", kw));
+        }
+        long page = q.getPage() < 1 ? 1 : q.getPage();
+        long size = q.getSize() < 1 ? 20 : q.getSize();
+        return ApiResult.ok(instrumentMapper.selectPage(new Page<>(page, size), w));
     }
 
     @PostMapping("/instruments")
     public ApiResult<CssdInstrument> saveInstrument(@RequestBody CssdInstrument e) {
-        e.setNamePinyin(PinyinCodeUtil.initials(e.getInstrumentName()));
+        String scope = scopedOrgId();
+        if (scope != null) {
+            e.setOrgId(scope);
+        }
+        if (e.getOrgId() == null || e.getOrgId().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择所属组织机构");
+        }
+        requireOrgAccess(e.getOrgId());
+        CssdCampus org = campusMapper.selectById(e.getOrgId());
+        if (org != null) {
+            e.setOrgCode(org.getCampusCode());
+        }
+        String initials = PinyinCodeUtil.initials(e.getInstrumentName());
+        e.setNamePinyin(initials);
+        if (e.getShortCode() == null || e.getShortCode().isBlank()) {
+            e.setShortCode(initials == null || initials.isBlank() ? null : initials.toUpperCase());
+        } else {
+            e.setShortCode(e.getShortCode().trim().toUpperCase());
+        }
+        boolean creating = e.getId() == null || e.getId().isBlank();
+        String code = e.getInstrumentCode() == null ? "" : e.getInstrumentCode().trim();
+        if (!creating) {
+            CssdInstrument old = instrumentMapper.selectById(e.getId());
+            if (old == null) throw new com.cssd.common.BizException(404, "器械不存在");
+            code = old.getInstrumentCode();
+        } else if (code.isBlank()) {
+            code = nextOrgSeqCode(e.getOrgId(), "Q", instrumentMapper, "instrument_code");
+        } else {
+            QueryWrapper<CssdInstrument> dup = new QueryWrapper<CssdInstrument>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("instrument_code", code);
+            if (instrumentMapper.selectCount(dup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下器械编码已存在：" + code);
+            }
+        }
+        e.setInstrumentCode(code);
+        if (e.getBarcode() != null && !e.getBarcode().isBlank()) {
+            QueryWrapper<CssdInstrument> barDup = new QueryWrapper<CssdInstrument>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("barcode", e.getBarcode().trim());
+            if (!creating) {
+                barDup.ne("id", e.getId());
+            }
+            if (instrumentMapper.selectCount(barDup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下器械条码已存在：" + e.getBarcode().trim());
+            }
+            e.setBarcode(e.getBarcode().trim());
+        }
+        if (e.getUdi() != null && !e.getUdi().isBlank()) {
+            String udi = e.getUdi().trim();
+            QueryWrapper<CssdInstrument> udiDup = new QueryWrapper<CssdInstrument>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("udi", udi);
+            if (!creating) {
+                udiDup.ne("id", e.getId());
+            }
+            if (instrumentMapper.selectCount(udiDup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下 UDI 已存在：" + udi);
+            }
+            e.setUdi(udi);
+        } else {
+            e.setUdi(null);
+        }
+        resolveInstrumentRefs(e);
+        if (e.getIsHighValue() == null) e.setIsHighValue(0);
+        if (e.getIsKeyMonitor() == null) e.setIsKeyMonitor(0);
+        if (e.getCurrentStatus() == null || e.getCurrentStatus().isBlank()) {
+            e.setCurrentStatus("在用");
+        }
+        if (e.getIsActive() == null) e.setIsActive(1);
         return ApiResult.ok(upsert(instrumentMapper, e, "instrument"));
     }
 
+    /** 按本机构字典回填厂家/供应商名称快照；无 id 时按名称在本机构内解析 */
+    private void resolveInstrumentRefs(CssdInstrument e) {
+        if (e.getManufacturerId() != null && !e.getManufacturerId().isBlank()) {
+            CssdManufacturer mfr = manufacturerMapper.selectById(e.getManufacturerId());
+            if (mfr == null) throw new com.cssd.common.BizException(400, "生产厂家不存在");
+            if (mfr.getOrgId() != null && !mfr.getOrgId().equals(e.getOrgId())) {
+                throw new com.cssd.common.BizException(400, "生产厂家不属于当前组织机构");
+            }
+            e.setManufacturerName(mfr.getMfrName());
+        } else if (e.getManufacturerName() != null && !e.getManufacturerName().isBlank()) {
+            String name = e.getManufacturerName().trim();
+            QueryWrapper<CssdManufacturer> w = new QueryWrapper<CssdManufacturer>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("mfr_name", name)
+                    .last("limit 1");
+            CssdManufacturer mfr = manufacturerMapper.selectOne(w);
+            if (mfr == null) {
+                throw new com.cssd.common.BizException(400, "生产厂家不存在：" + name);
+            }
+            e.setManufacturerId(mfr.getId());
+            e.setManufacturerName(mfr.getMfrName());
+        } else {
+            e.setManufacturerId(null);
+            e.setManufacturerName(null);
+        }
+        if (e.getVendorId() != null && !e.getVendorId().isBlank()) {
+            CssdVendor vendor = vendorMapper.selectById(e.getVendorId());
+            if (vendor == null) throw new com.cssd.common.BizException(400, "供应商不存在");
+            if (vendor.getOrgId() != null && !vendor.getOrgId().equals(e.getOrgId())) {
+                throw new com.cssd.common.BizException(400, "供应商不属于当前组织机构");
+            }
+            e.setVendorName(vendor.getVendorName());
+        } else if (e.getVendorName() != null && !e.getVendorName().isBlank()) {
+            String name = e.getVendorName().trim();
+            QueryWrapper<CssdVendor> w = new QueryWrapper<CssdVendor>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("vendor_name", name)
+                    .last("limit 1");
+            CssdVendor vendor = vendorMapper.selectOne(w);
+            if (vendor == null) {
+                throw new com.cssd.common.BizException(400, "供应商不存在：" + name);
+            }
+            e.setVendorId(vendor.getId());
+            e.setVendorName(vendor.getVendorName());
+        } else {
+            e.setVendorId(null);
+            e.setVendorName(null);
+        }
+        if (e.getUnitId() != null && !e.getUnitId().isBlank()) {
+            CssdUnit unit = unitMapper.selectById(e.getUnitId());
+            if (unit == null) throw new com.cssd.common.BizException(400, "计量单位不存在");
+            if (unit.getOrgId() != null && !unit.getOrgId().equals(e.getOrgId())) {
+                throw new com.cssd.common.BizException(400, "计量单位不属于当前组织机构");
+            }
+            e.setUnitName(unit.getUnitName());
+        } else if (e.getUnitName() != null && !e.getUnitName().isBlank()) {
+            String name = e.getUnitName().trim();
+            QueryWrapper<CssdUnit> w = new QueryWrapper<CssdUnit>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("unit_name", name)
+                    .last("limit 1");
+            CssdUnit unit = unitMapper.selectOne(w);
+            if (unit == null) {
+                throw new com.cssd.common.BizException(400, "计量单位不存在：" + name);
+            }
+            e.setUnitId(unit.getId());
+            e.setUnitName(unit.getUnitName());
+        } else {
+            e.setUnitId(null);
+            e.setUnitName(null);
+        }
+    }
+
+    @DeleteMapping("/instruments/{id}")
+    public ApiResult<Void> delInstrument(@PathVariable String id) {
+        CssdInstrument row = instrumentMapper.selectById(id);
+        if (row != null) requireOrgAccess(row.getOrgId());
+        instrumentMapper.deleteById(id);
+        return ApiResult.ok();
+    }
+
+    /** 器械包档案：按组织机构隔离 */
     @GetMapping("/templates")
     public ApiResult<?> templates(PageQuery q) {
-        return page(templateMapper, q, "template_code", "template_name", "name_pinyin");
+        QueryWrapper<CssdPackTemplate> w = new QueryWrapper<CssdPackTemplate>().orderByDesc("created_at");
+        String scope = scopedOrgId();
+        if (scope != null) {
+            w.eq("org_id", scope);
+        } else if (q.getOrgId() != null && !q.getOrgId().isBlank()) {
+            w.eq("org_id", q.getOrgId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            String kw = q.getKeyword();
+            w.and(x -> x.like("template_code", kw).or().like("template_name", kw)
+                    .or().like("short_code", kw).or().like("name_pinyin", kw)
+                    .or().like("pack_category", kw).or().like("owner_dept_name", kw)
+                    .or().like("material_name", kw));
+        }
+        long page = q.getPage() < 1 ? 1 : q.getPage();
+        long size = q.getSize() < 1 ? 20 : q.getSize();
+        return ApiResult.ok(templateMapper.selectPage(new Page<>(page, size), w));
     }
 
     @GetMapping("/templates/{id}")
     public ApiResult<Map<String, Object>> template(@PathVariable String id) {
         CssdPackTemplate t = templateMapper.selectById(id);
+        if (t == null) throw new com.cssd.common.BizException(404, "器械包不存在");
+        requireOrgAccess(t.getOrgId());
         return ApiResult.ok(Map.of("template", t, "items", templateItemMapper.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<CssdPackTemplateItem>()
                         .eq(CssdPackTemplateItem::getTemplateId, id).orderByAsc(CssdPackTemplateItem::getLineNo))));
@@ -728,13 +917,68 @@ public class MdController {
 
     @PostMapping("/templates")
     public ApiResult<CssdPackTemplate> saveTemplate(@RequestBody CssdPackTemplate e) {
-        e.setNamePinyin(PinyinCodeUtil.initials(e.getTemplateName()));
+        String scope = scopedOrgId();
+        if (scope != null) {
+            e.setOrgId(scope);
+        }
+        if (e.getOrgId() == null || e.getOrgId().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择所属组织机构");
+        }
+        requireOrgAccess(e.getOrgId());
+        CssdCampus org = campusMapper.selectById(e.getOrgId());
+        if (org != null) {
+            e.setOrgCode(org.getCampusCode());
+        }
+        if (e.getPackCategory() == null || e.getPackCategory().isBlank()) {
+            throw new com.cssd.common.BizException(400, "请选择包类别");
+        }
+        String initials = PinyinCodeUtil.initials(e.getTemplateName());
+        e.setNamePinyin(initials);
+        if (e.getShortCode() == null || e.getShortCode().isBlank()) {
+            e.setShortCode(initials == null || initials.isBlank() ? null : initials.toUpperCase());
+        } else {
+            e.setShortCode(e.getShortCode().trim().toUpperCase());
+        }
+        boolean creating = e.getId() == null || e.getId().isBlank();
+        String code = e.getTemplateCode() == null ? "" : e.getTemplateCode().trim();
+        if (!creating) {
+            CssdPackTemplate old = templateMapper.selectById(e.getId());
+            if (old == null) throw new com.cssd.common.BizException(404, "器械包不存在");
+            code = old.getTemplateCode();
+        } else if (code.isBlank()) {
+            code = nextOrgSeqCode(e.getOrgId(), "B", templateMapper, "template_code");
+        } else {
+            QueryWrapper<CssdPackTemplate> dup = new QueryWrapper<CssdPackTemplate>()
+                    .eq("org_id", e.getOrgId())
+                    .eq("template_code", code);
+            if (templateMapper.selectCount(dup) > 0) {
+                throw new com.cssd.common.BizException(400, "该组织机构下包编码已存在：" + code);
+            }
+        }
+        e.setTemplateCode(code);
+        if (e.getNeedWash() == null) e.setNeedWash(1);
+        if (e.getWashMode() == null || e.getWashMode().isBlank()) e.setWashMode("scatter");
+        if (e.getNeedPack() == null) e.setNeedPack(1);
+        if (e.getNeedStore() == null) e.setNeedStore(1);
+        if (e.getNeedRecycle() == null) e.setNeedRecycle(1);
+        if (e.getIsImplant() == null) e.setIsImplant(0);
+        if (e.getIsActive() == null) e.setIsActive(1);
         return ApiResult.ok(upsert(templateMapper, e, "pack_template"));
+    }
+
+    @DeleteMapping("/templates/{id}")
+    public ApiResult<Void> delTemplate(@PathVariable String id) {
+        CssdPackTemplate row = templateMapper.selectById(id);
+        if (row != null) requireOrgAccess(row.getOrgId());
+        templateMapper.deleteById(id);
+        return ApiResult.ok();
     }
 
     @PostMapping("/templates/{id}/items")
     public ApiResult<CssdPackTemplateItem> saveTplItem(@PathVariable String id, @RequestBody CssdPackTemplateItem e) {
         CssdPackTemplate t = templateMapper.selectById(id);
+        if (t == null) throw new com.cssd.common.BizException(404, "器械包不存在");
+        requireOrgAccess(t.getOrgId());
         e.setTemplateId(id);
         e.setTemplateCode(t.getTemplateCode());
         e.setTemplateName(t.getTemplateName());

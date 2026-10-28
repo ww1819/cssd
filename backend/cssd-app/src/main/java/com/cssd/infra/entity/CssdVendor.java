@@ -29,6 +29,16 @@ public class CssdVendor extends BaseEntity {
     private String companyAddress;
     /** 邮箱 */
     private String email;
+    /** 注册资金 */
+    private String registeredCapital;
+    /** 公司负责人 */
+    private String companyPrincipal;
+    /** 经营范围 */
+    private String businessScope;
+    /** 传真 */
+    private String fax;
+    /** 网址 */
+    private String website;
     /**
      * 供应商类型（多选，逗号分隔）：
      * external_instrument / implant / reusable_owned / cssd_consumable / device_maintain

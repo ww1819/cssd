@@ -8,9 +8,15 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @TableName(value = "cssd_pack_template", schema = "cssd")
 public class CssdPackTemplate extends BaseEntity {
+    /** 所属组织机构 id */
+    private String orgId;
+    /** 所属组织机构编码 */
+    private String orgCode;
     private String templateCode;
     private String templateName;
     private String namePinyin;
+    /** 简码 */
+    private String shortCode;
     private String packCategory;
     private String ownerDeptId;
     private String ownerDeptCode;

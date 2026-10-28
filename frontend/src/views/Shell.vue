@@ -3,16 +3,7 @@
     <el-aside :width="asideWidth" class="aside" :class="{ collapsed: asideCollapsed }">
       <div class="logo">
         <span class="logo-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" width="28" height="28">
-            <defs>
-              <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="var(--station-from)" />
-                <stop offset="100%" stop-color="var(--station-to)" />
-              </linearGradient>
-            </defs>
-            <circle cx="16" cy="16" r="15" fill="url(#logoGrad)" />
-            <path d="M10 16h12M16 10v12" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
-          </svg>
+          <img class="logo-img" src="/aisipute-icon.ico" alt="CSSD" width="28" height="28" />
         </span>
         <span v-show="!asideCollapsed" class="logo-text">CSSD 追溯</span>
       </div>
@@ -342,8 +333,8 @@ const mdTitles = {
   perms: '权限管理',
   vendors: '供应商维护',
   manufacturers: '生产厂家维护',
-  instruments: '器械字典',
-  templates: '包模板',
+  instruments: '器械基础档案',
+  templates: '器械包档案',
   devices: '设备维护',
   units: '单位维护',
   'sys-config': '系统配置'
@@ -488,8 +479,8 @@ const allMenus = [
         items: [
           { label: '供应商维护', tab: 'vendors', authId: 'md-vendors' },
           { label: '生产厂家维护', tab: 'manufacturers', authId: 'md-manufacturers' },
-          { label: '器械字典', tab: 'instruments', authId: 'md-instruments' },
-          { label: '包模板', tab: 'templates', authId: 'md-templates' },
+          { label: '器械基础档案', tab: 'instruments', authId: 'md-instruments' },
+          { label: '器械包档案', tab: 'templates', authId: 'md-templates' },
           { label: '设备维护', tab: 'devices', authId: 'md-devices' },
           { label: '单位维护', tab: 'units', authId: 'md-units' }
         ]
@@ -774,6 +765,14 @@ function logout() {
   height: 28px;
   flex-shrink: 0;
   line-height: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.logo-img {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
 }
 .logo-text {
   font-family: "Segoe UI Semibold", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -908,11 +907,35 @@ function logout() {
   white-space: nowrap;
 }
 .hdr-org-select {
-  width: 240px;
-  max-width: min(280px, 42vw);
+  width: auto;
+  max-width: min(320px, 48vw);
+  min-width: 120px;
 }
 .hdr-org-select :deep(.el-select__wrapper) {
-  min-height: 32px;
+  min-height: 28px;
+  padding: 0 4px 0 0;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  cursor: pointer;
+}
+.hdr-org-select :deep(.el-select__wrapper.is-focused),
+.hdr-org-select :deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.hdr-org-select :deep(.el-select__selection) {
+  flex-wrap: nowrap;
+}
+.hdr-org-select :deep(.el-select__selected-item),
+.hdr-org-select :deep(.el-select__placeholder) {
+  font-size: 13px;
+  color: #3d5560;
+  font-weight: 500;
+}
+.hdr-org-select :deep(.el-select__caret) {
+  color: #5a7380;
 }
 .hdr-spacer { flex: 1; }
 .hdr-user {

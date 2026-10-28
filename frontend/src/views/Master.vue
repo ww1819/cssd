@@ -1163,9 +1163,9 @@
             <el-tab-pane label="基础信息" name="basic" />
             <el-tab-pane label="证件信息" name="cert" />
           </el-tabs>
-          <el-form ref="vendorFormRef" class="staff-form-grid" :model="vendorForm" :rules="vendorRules" label-width="128px">
-            <div v-show="vendorFormTab === 'basic'">
-              <el-form-item v-if="isPlatformAdmin" label="组织机构" prop="orgId">
+          <el-form ref="vendorFormRef" class="staff-form-grid" :model="vendorForm" :rules="vendorRules" label-width="108px">
+            <div v-show="vendorFormTab === 'basic'" class="vendor-form-grid">
+              <el-form-item v-if="isPlatformAdmin" class="vendor-form-span-2" label="组织机构" prop="orgId">
                 <el-select v-model="vendorForm.orgId" filterable placeholder="请选择组织机构" style="width: 100%">
                   <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
                 </el-select>
@@ -1184,25 +1184,40 @@
               <el-form-item label="简码" prop="shortCode">
                 <el-input v-model="vendorForm.shortCode" maxlength="64" placeholder="根据名称自动生成" />
               </el-form-item>
+              <el-form-item label="注册资金" prop="registeredCapital">
+                <el-input v-model="vendorForm.registeredCapital" maxlength="64" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="公司负责人" prop="companyPrincipal">
+                <el-input v-model="vendorForm.companyPrincipal" maxlength="64" placeholder="选填" />
+              </el-form-item>
               <el-form-item label="业务员" prop="salesman">
                 <el-input v-model="vendorForm.salesman" maxlength="64" placeholder="选填" />
               </el-form-item>
               <el-form-item label="联系电话" prop="contactPhone">
                 <el-input v-model="vendorForm.contactPhone" maxlength="32" placeholder="选填" />
               </el-form-item>
-              <el-form-item label="公司地址" prop="companyAddress">
-                <el-input v-model="vendorForm.companyAddress" maxlength="255" placeholder="选填" />
+              <el-form-item label="传真" prop="fax">
+                <el-input v-model="vendorForm.fax" maxlength="64" placeholder="选填" />
               </el-form-item>
               <el-form-item label="邮箱" prop="email">
                 <el-input v-model="vendorForm.email" maxlength="128" placeholder="选填" />
               </el-form-item>
-              <el-form-item label="是否启用" prop="isActive">
+              <el-form-item label="网址" prop="website">
+                <el-input v-model="vendorForm.website" maxlength="255" placeholder="选填" />
+              </el-form-item>
+              <el-form-item class="vendor-form-span-2" label="公司地址" prop="companyAddress">
+                <el-input v-model="vendorForm.companyAddress" maxlength="255" placeholder="选填" />
+              </el-form-item>
+              <el-form-item class="vendor-form-span-2" label="经营范围" prop="businessScope">
+                <el-input v-model="vendorForm.businessScope" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+              </el-form-item>
+              <el-form-item label="启用" prop="isActive">
                 <el-switch v-model="vendorForm.isActive" :active-value="1" :inactive-value="0" />
               </el-form-item>
-              <el-form-item label="备注" prop="remark">
+              <el-form-item class="vendor-form-span-2" label="备注" prop="remark">
                 <el-input v-model="vendorForm.remark" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
               </el-form-item>
-              <el-form-item label="供应商类型" prop="vendorTypes">
+              <el-form-item class="vendor-form-span-2" label="供应商类型" prop="vendorTypes">
                 <div class="vendor-type-lights">
                   <button
                     v-for="t in vendorTypeOptions"
@@ -1234,6 +1249,539 @@
             </div>
           </template>
         </el-drawer>
+      </div>
+    </template>
+
+    <!-- 器械包档案 -->
+    <template v-else-if="active === 'templates'">
+      <div ref="tplPanelRef" class="org-panel">
+        <div class="toolbar">
+          <el-input
+            v-model="tplKeyword"
+            clearable
+            placeholder="搜索包编码 / 名称 / 简码"
+            class="toolbar-search"
+            @keyup.enter="searchTplPage"
+            @clear="searchTplPage"
+          />
+          <el-button class="toolbar-btn toolbar-btn--search" :icon="Search" @click="searchTplPage">搜索</el-button>
+          <el-button class="toolbar-btn toolbar-btn--refresh" :icon="Refresh" @click="loadTplPage">刷新</el-button>
+          <el-button type="primary" class="toolbar-btn" :icon="Plus" @click="openTplCreate">新增</el-button>
+        </div>
+        <div class="md-table-wrap">
+          <el-table
+            ref="tplTableRef"
+            v-loading="tplLoading"
+            :data="tplRows"
+            border
+            height="100%"
+            class="md-table"
+            :row-class-name="tplRowClassName"
+            @selection-change="onTplSelectionChange"
+            @row-dblclick="onTplRowDblclick"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column type="index" label="序号" width="64" :index="tplIndex" />
+            <el-table-column prop="templateCode" label="包编码" min-width="120" sortable show-overflow-tooltip />
+            <el-table-column prop="templateName" label="包名称" min-width="140" sortable show-overflow-tooltip />
+            <el-table-column prop="shortCode" label="简码" min-width="90" show-overflow-tooltip />
+            <el-table-column label="包类别" min-width="110" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatPackCategory(row.packCategory) }}</template>
+            </el-table-column>
+            <el-table-column prop="shelfLifeDays" label="有效期(天)" width="100" align="center" />
+            <el-table-column prop="basketLoadQty" label="一篮装量" width="90" align="center" />
+            <el-table-column label="需入库" width="80" align="center">
+              <template #default="{ row }">{{ row.needStore === 0 ? '否' : '是' }}</template>
+            </el-table-column>
+            <el-table-column label="是否启用" width="90" align="center">
+              <template #default="{ row }">{{ row.isActive === 0 ? '停用' : '启用' }}</template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
+              <template #default="{ row }">
+                <div class="org-ops">
+                  <el-button class="org-ops-btn" type="success" plain size="small" @click="openTplEdit(row)">修改</el-button>
+                  <el-button class="org-ops-btn" type="danger" plain size="small" @click="deleteTplRow(row)">删除</el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="md-pager">
+          <el-pagination
+            v-model:current-page="tplPage"
+            v-model:page-size="tplPageSize"
+            :total="tplTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="prev, pager, next, jumper, total, sizes"
+            @current-change="loadTplPage"
+            @size-change="onTplPageSizeChange"
+          />
+        </div>
+        <el-drawer
+          v-model="tplDrawerVisible"
+          direction="rtl"
+          size="560px"
+          :modal="true"
+          :show-close="false"
+          :append-to="tplPanelRef || 'body'"
+          :lock-scroll="false"
+          :close-on-click-modal="false"
+          modal-class="org-drawer-modal"
+          destroy-on-close
+          @closed="resetTplForm"
+        >
+          <template #header>
+            <div class="org-drawer-header">
+              <span class="org-drawer-title">{{ tplDialogMode === 'edit' ? '修改器械包信息' : '新增器械包信息' }}</span>
+              <el-button type="danger" size="small" @click="tplDrawerVisible = false">关闭</el-button>
+            </div>
+          </template>
+          <el-tabs v-model="tplFormTab" class="staff-form-tabs">
+            <el-tab-pane label="基础信息" name="basic" />
+            <el-tab-pane label="流程开关" name="flow" />
+          </el-tabs>
+          <el-form ref="tplFormRef" class="staff-form-grid" :model="tplForm" :rules="tplRules" label-width="112px">
+            <div v-show="tplFormTab === 'basic'">
+              <el-form-item v-if="isPlatformAdmin" label="组织机构" prop="orgId">
+                <el-select v-model="tplForm.orgId" filterable placeholder="请选择组织机构" style="width: 100%">
+                  <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="包编码" prop="templateCode">
+                <el-input
+                  v-model="tplForm.templateCode"
+                  maxlength="64"
+                  :disabled="tplDialogMode === 'edit'"
+                  :placeholder="tplDialogMode === 'edit' ? '' : '新增留空则自动生成 B000001'"
+                />
+              </el-form-item>
+              <el-form-item label="包名称" prop="templateName">
+                <el-input v-model="tplForm.templateName" maxlength="200" placeholder="请输入包名称" @input="onTplNameInput" />
+              </el-form-item>
+              <el-form-item label="简码" prop="shortCode">
+                <el-input v-model="tplForm.shortCode" maxlength="64" placeholder="根据名称自动生成" />
+              </el-form-item>
+              <el-form-item label="包类别" prop="packCategory">
+                <el-select v-model="tplForm.packCategory" placeholder="请选择包类别" style="width: 100%">
+                  <el-option v-for="c in packCategoryOptions" :key="c.value" :label="c.label" :value="c.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="有效期(天)" prop="shelfLifeDays">
+                <el-input-number v-model="tplForm.shelfLifeDays" :min="0" :max="9999" controls-position="right" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="一篮装量" prop="basketLoadQty">
+                <el-input-number v-model="tplForm.basketLoadQty" :min="0" :max="9999" controls-position="right" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="安全库存" prop="safetyStockQty">
+                <el-input-number v-model="tplForm.safetyStockQty" :min="0" :max="9999" controls-position="right" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="灭菌方式" prop="sterMethod">
+                <el-select v-model="tplForm.sterMethod" clearable placeholder="选填" style="width: 100%">
+                  <el-option label="高温" value="high" />
+                  <el-option label="低温" value="low" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="是否启用" prop="isActive">
+                <el-switch v-model="tplForm.isActive" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="备注" prop="remark">
+                <el-input v-model="tplForm.remark" type="textarea" :rows="2" maxlength="500" placeholder="选填" />
+              </el-form-item>
+            </div>
+            <div v-show="tplFormTab === 'flow'">
+              <el-form-item label="需清洗" prop="needWash">
+                <el-switch v-model="tplForm.needWash" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="清洗方式" prop="washMode">
+                <el-select v-model="tplForm.washMode" style="width: 100%">
+                  <el-option label="打散" value="scatter" />
+                  <el-option label="整篮" value="whole_basket" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="需包装" prop="needPack">
+                <el-switch v-model="tplForm.needPack" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="需入库" prop="needStore">
+                <el-switch v-model="tplForm.needStore" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="需回收" prop="needRecycle">
+                <el-switch v-model="tplForm.needRecycle" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+              <el-form-item label="植入物" prop="isImplant">
+                <el-switch v-model="tplForm.isImplant" :active-value="1" :inactive-value="0" />
+              </el-form-item>
+            </div>
+          </el-form>
+          <template #footer>
+            <div class="drawer-footer">
+              <el-button @click="tplDrawerVisible = false">取消</el-button>
+              <el-button type="primary" :loading="tplSaving" @click="submitTplForm">确定</el-button>
+            </div>
+          </template>
+        </el-drawer>
+      </div>
+    </template>
+
+    <!-- 器械基础档案 -->
+    <template v-else-if="active === 'instruments'">
+      <div ref="instrumentPanelRef" class="org-panel">
+        <div class="toolbar">
+          <el-input
+            v-model="instrumentKeyword"
+            clearable
+            placeholder="搜索器械编码 / 名称 / 简码"
+            class="toolbar-search"
+            @keyup.enter="searchInstrumentPage"
+            @clear="searchInstrumentPage"
+          />
+          <el-button class="toolbar-btn toolbar-btn--search" :icon="Search" @click="searchInstrumentPage">搜索</el-button>
+          <el-button class="toolbar-btn toolbar-btn--refresh" :icon="Refresh" @click="loadInstrumentPage">刷新</el-button>
+          <el-button type="primary" plain class="toolbar-btn" :icon="Upload" @click="openInstrumentImport">导入</el-button>
+          <el-button type="primary" class="toolbar-btn" :icon="Plus" @click="openInstrumentCreate">新增</el-button>
+        </div>
+        <el-dialog
+          v-model="instrumentImportVisible"
+          title="器械导入"
+          width="920px"
+          class="org-auth-dialog staff-import-dialog"
+          append-to-body
+          destroy-on-close
+          :show-close="false"
+          :close-on-click-modal="false"
+        >
+          <div class="staff-import-toolbar">
+            <el-button type="primary" :icon="Download" @click="downloadInstrumentImportTemplate">下载模板</el-button>
+            <el-upload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".xls,.xlsx,.csv,text/csv,.txt,application/vnd.ms-excel"
+              :on-change="onInstrumentImportFileChange"
+            >
+              <el-button type="primary" plain :icon="Document">选择文件</el-button>
+            </el-upload>
+            <el-button type="primary" plain :icon="Search" :disabled="!instrumentImportFile" @click="parseInstrumentImportFile">解析</el-button>
+            <el-button type="success" :icon="Upload" :loading="instrumentImportSaving" :disabled="!instrumentImportRows.length || instrumentImportSaving" @click="submitInstrumentImport">导入</el-button>
+            <span v-if="instrumentImportFileName" class="staff-import-file">{{ instrumentImportFileName }}</span>
+          </div>
+          <div v-if="instrumentImportSaving" class="staff-import-progress">
+            <el-progress
+              :percentage="instrumentImportProgress"
+              :stroke-width="14"
+              striped
+              striped-flow
+              status="success"
+            />
+            <div class="staff-import-progress-text">正在导入 {{ instrumentImportDone }}/{{ instrumentImportTotal }}…</div>
+          </div>
+          <el-table :data="instrumentImportRows" border height="360" class="md-table" empty-text="请先选择文件并点击解析">
+            <el-table-column type="index" label="序号" width="56" />
+            <el-table-column prop="instrumentCode" label="器械编码" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="instrumentName" label="器械名称" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="aliasName" label="别名" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="englishName" label="英文名称" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="brandName" label="品牌" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="spec" label="规格" min-width="80" show-overflow-tooltip />
+            <el-table-column prop="model" label="型号" min-width="80" show-overflow-tooltip />
+            <el-table-column prop="udi" label="UDI" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="manufacturerName" label="生产厂家" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="vendorName" label="供应商" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="registerNo" label="注册证号" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="registerValidUntil" label="注册证有效期" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="packRequirement" label="包装要求" min-width="110" show-overflow-tooltip />
+            <el-table-column label="校验" min-width="150" fixed="right" align="center" header-align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :class="row.error ? 'staff-import-fail' : 'staff-import-ok'">
+                  {{ row.error || '通过' }}
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <template #footer>
+            <div class="auth-footer">
+              <el-button :disabled="instrumentImportSaving" @click="instrumentImportVisible = false">关闭</el-button>
+            </div>
+          </template>
+        </el-dialog>
+        <div class="md-table-wrap">
+          <el-table
+            ref="instrumentTableRef"
+            v-loading="instrumentLoading"
+            :data="instrumentRows"
+            border
+            height="100%"
+            class="md-table"
+            :row-class-name="instrumentRowClassName"
+            @selection-change="onInstrumentSelectionChange"
+            @row-dblclick="onInstrumentRowDblclick"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column type="index" label="序号" width="64" :index="instrumentIndex" />
+            <el-table-column prop="instrumentCode" label="器械编码" min-width="120" sortable show-overflow-tooltip />
+            <el-table-column prop="instrumentName" label="器械名称" min-width="140" sortable show-overflow-tooltip />
+            <el-table-column prop="shortCode" label="简码" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="spec" label="规格" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="model" label="型号" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="unitName" label="单位" min-width="80" show-overflow-tooltip />
+            <el-table-column label="单价" min-width="90" align="right" header-align="center" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatInstrumentCostPrice(row.costPrice) }}</template>
+            </el-table-column>
+            <el-table-column prop="registerNo" label="注册证号" min-width="140" show-overflow-tooltip />
+            <el-table-column label="注册证有效期" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatInstrumentDate(row.registerValidUntil) }}</template>
+            </el-table-column>
+            <el-table-column prop="manufacturerName" label="生产厂家" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="vendorName" label="供应商" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="currentStatus" label="当前状态" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="barcode" label="器械条码" min-width="120" show-overflow-tooltip />
+            <el-table-column label="启用" width="80" align="center">
+              <template #default="{ row }">{{ row.isActive === 0 ? '停用' : '启用' }}</template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column label="操作" width="200" fixed="right" align="center" header-align="center">
+              <template #default="{ row }">
+                <div class="org-ops">
+                  <el-button class="org-ops-btn" type="primary" plain size="small" @click="openInstrumentCopy(row)">复制</el-button>
+                  <el-button class="org-ops-btn" type="success" plain size="small" @click="openInstrumentEdit(row)">修改</el-button>
+                  <el-button class="org-ops-btn" type="danger" plain size="small" @click="deleteInstrumentRow(row)">删除</el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="md-pager">
+          <el-pagination
+            v-model:current-page="instrumentPage"
+            v-model:page-size="instrumentPageSize"
+            :total="instrumentTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="prev, pager, next, jumper, total, sizes"
+            @current-change="loadInstrumentPage"
+            @size-change="onInstrumentPageSizeChange"
+          />
+        </div>
+        <el-dialog
+          v-model="instrumentDrawerVisible"
+          width="100%"
+          class="org-auth-dialog instrument-dialog"
+          :append-to-body="false"
+          destroy-on-close
+          :show-close="false"
+          :lock-scroll="false"
+          :close-on-click-modal="false"
+          :align-center="false"
+          top="0"
+          modal-class="org-drawer-modal instrument-dialog-modal"
+          @closed="resetInstrumentForm"
+        >
+          <template #header>
+            <div class="org-drawer-header">
+              <span class="org-drawer-title">{{ instrumentDialogMode === 'edit' ? '修改器械信息' : '新增器械信息' }}</span>
+              <el-button type="danger" size="small" @click="instrumentDrawerVisible = false">关闭</el-button>
+            </div>
+          </template>
+          <div class="instrument-dialog-body">
+            <el-tabs v-model="instrumentFormTab" class="staff-form-tabs instrument-dialog-tabs">
+              <el-tab-pane label="基础信息" name="basic" />
+              <el-tab-pane label="图片" name="images" />
+              <el-tab-pane label="附件" name="attachments" />
+            </el-tabs>
+            <div class="instrument-dialog-scroll">
+              <el-form ref="instrumentFormRef" class="staff-form-grid instrument-dialog-form" :model="instrumentForm" :rules="instrumentRules" label-width="96px">
+                <div v-show="instrumentFormTab === 'basic'" class="instrument-form-grid">
+                  <el-form-item v-if="isPlatformAdmin" class="instrument-form-span-5" label="组织机构" prop="orgId">
+                    <el-select
+                      v-model="instrumentForm.orgId"
+                      filterable
+                      placeholder="请选择组织机构"
+                      style="width: 100%"
+                      @change="onInstrumentOrgChange"
+                    >
+                      <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="器械编码" prop="instrumentCode">
+                    <el-input
+                      v-model="instrumentForm.instrumentCode"
+                      maxlength="64"
+                      :disabled="instrumentDialogMode === 'edit'"
+                      :placeholder="instrumentDialogMode === 'edit' ? '' : '留空自动生成'"
+                    />
+                  </el-form-item>
+                  <el-form-item label="器械名称" prop="instrumentName">
+                    <el-input v-model="instrumentForm.instrumentName" maxlength="200" placeholder="请输入器械名称" @input="onInstrumentNameInput" />
+                  </el-form-item>
+                  <el-form-item label="别名" prop="aliasName">
+                    <el-input v-model="instrumentForm.aliasName" maxlength="200" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="英文名称" prop="englishName">
+                    <el-input v-model="instrumentForm.englishName" maxlength="200" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="简码" prop="shortCode">
+                    <el-input v-model="instrumentForm.shortCode" maxlength="64" placeholder="自动生成" />
+                  </el-form-item>
+                  <el-form-item label="品牌" prop="brandName">
+                    <el-input v-model="instrumentForm.brandName" maxlength="128" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="规格" prop="spec">
+                    <el-input v-model="instrumentForm.spec" maxlength="128" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="型号" prop="model">
+                    <el-input v-model="instrumentForm.model" maxlength="128" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="UDI" prop="udi">
+                    <el-input v-model="instrumentForm.udi" maxlength="128" placeholder="唯一器械标识" />
+                  </el-form-item>
+                  <el-form-item label="生产厂家" prop="manufacturerId">
+                    <el-select v-model="instrumentForm.manufacturerId" filterable clearable placeholder="请选择" style="width: 100%">
+                      <el-option v-for="m in instrumentMfrOptions" :key="m.id" :label="m.mfrName" :value="m.id" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="供应商" prop="vendorId">
+                    <el-select v-model="instrumentForm.vendorId" filterable clearable placeholder="请选择" style="width: 100%">
+                      <el-option v-for="v in instrumentVendorOptions" :key="v.id" :label="v.vendorName" :value="v.id" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="注册证号" prop="registerNo">
+                    <el-input v-model="instrumentForm.registerNo" maxlength="128" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="注册证有效期" prop="registerValidUntil" label-width="108px">
+                    <el-date-picker
+                      v-model="instrumentForm.registerValidUntil"
+                      type="date"
+                      value-format="YYYY-MM-DD"
+                      placeholder="选填"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                  <el-form-item label="材质" prop="materialName">
+                    <el-input v-model="instrumentForm.materialName" maxlength="128" placeholder="如 不锈钢" />
+                  </el-form-item>
+                  <el-form-item label="器械条码" prop="barcode">
+                    <el-input v-model="instrumentForm.barcode" maxlength="64" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="器械分类" prop="instrumentCategory">
+                    <el-select v-model="instrumentForm.instrumentCategory" clearable filterable allow-create placeholder="请选择或输入" style="width: 100%">
+                      <el-option v-for="o in instrumentCategoryOptions" :key="o" :label="o" :value="o" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="器械类型" prop="instrumentType">
+                    <el-select v-model="instrumentForm.instrumentType" clearable filterable allow-create placeholder="请选择或输入" style="width: 100%">
+                      <el-option v-for="o in instrumentTypeOptions" :key="o" :label="o" :value="o" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="灭菌方式" prop="sterMethod">
+                    <el-select v-model="instrumentForm.sterMethod" clearable placeholder="请选择" style="width: 100%">
+                      <el-option v-for="o in instrumentSterMethodOptions" :key="o.value" :label="o.label" :value="o.value" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="清洗方式" prop="washMethod">
+                    <el-select v-model="instrumentForm.washMethod" clearable filterable allow-create placeholder="请选择或输入" style="width: 100%">
+                      <el-option v-for="o in instrumentWashMethodOptions" :key="o" :label="o" :value="o" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="包装要求" prop="packRequirement">
+                    <el-input v-model="instrumentForm.packRequirement" maxlength="255" placeholder="选填" />
+                  </el-form-item>
+                  <el-form-item label="单价" prop="costPrice">
+                    <el-input-number
+                      v-model="instrumentForm.costPrice"
+                      :min="0"
+                      :precision="4"
+                      :controls="false"
+                      placeholder="选填"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                  <el-form-item label="单位" prop="unitId">
+                    <el-select v-model="instrumentForm.unitId" filterable clearable placeholder="请选择" style="width: 100%">
+                      <el-option v-for="u in instrumentUnitOptions" :key="u.id" :label="u.unitName" :value="u.id" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="存放属性" prop="storageAttr">
+                    <el-select v-model="instrumentForm.storageAttr" clearable filterable allow-create placeholder="请选择或输入" style="width: 100%">
+                      <el-option v-for="o in instrumentStorageAttrOptions" :key="o" :label="o" :value="o" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="当前状态" prop="currentStatus">
+                    <el-select v-model="instrumentForm.currentStatus" placeholder="请选择" style="width: 100%">
+                      <el-option v-for="o in instrumentStatusOptions" :key="o" :label="o" :value="o" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="启用" prop="isActive">
+                    <el-switch v-model="instrumentForm.isActive" :active-value="1" :inactive-value="0" />
+                  </el-form-item>
+                  <el-form-item label="高值器械" prop="isHighValue">
+                    <el-switch v-model="instrumentForm.isHighValue" :active-value="1" :inactive-value="0" />
+                  </el-form-item>
+                  <el-form-item label="重点监控器械" prop="isKeyMonitor" label-width="108px">
+                    <el-switch v-model="instrumentForm.isKeyMonitor" :active-value="1" :inactive-value="0" />
+                  </el-form-item>
+                  <el-form-item class="instrument-form-span-5" label="备注" prop="remark">
+                    <el-input
+                      v-model="instrumentForm.remark"
+                      type="textarea"
+                      :rows="3"
+                      maxlength="500"
+                      placeholder="特殊注意事项（如禁止超声清洗、轻拿轻放）"
+                    />
+                  </el-form-item>
+                </div>
+                <div v-show="instrumentFormTab === 'images'" class="device-ext-pane">
+                  <div class="device-ext-toolbar">
+                    <el-upload
+                      :auto-upload="false"
+                      :show-file-list="false"
+                      accept=".jpg,.jpeg,.png,.webp,.gif"
+                      :on-change="onInstrumentImageChange"
+                    >
+                      <el-button type="primary" plain>上传图片</el-button>
+                    </el-upload>
+                    <span class="hint">支持 jpg/png，单张不超过 3MB</span>
+                  </div>
+                  <div v-if="instrumentImageList.length" class="device-image-grid">
+                    <div v-for="(img, idx) in instrumentImageList" :key="`${img.name}-${idx}`" class="device-image-item">
+                      <img :src="img.dataUrl" :alt="img.name" />
+                      <div class="device-image-meta">
+                        <span :title="img.name">{{ img.name }}</span>
+                        <el-button link type="danger" @click="removeInstrumentImage(idx)">删除</el-button>
+                      </div>
+                    </div>
+                  </div>
+                  <el-empty v-else description="暂无器械图片" :image-size="72" />
+                </div>
+                <div v-show="instrumentFormTab === 'attachments'" class="device-ext-pane">
+                  <div class="device-ext-toolbar">
+                    <el-upload
+                      :auto-upload="false"
+                      :show-file-list="false"
+                      :on-change="onInstrumentAttachmentChange"
+                    >
+                      <el-button type="primary" plain>上传附件</el-button>
+                    </el-upload>
+                    <span class="hint">单文件不超过 5MB</span>
+                  </div>
+                  <el-table v-if="instrumentAttachmentList.length" :data="instrumentAttachmentList" border size="small" class="md-table">
+                    <el-table-column prop="name" label="文件名" min-width="180" show-overflow-tooltip />
+                    <el-table-column label="操作" width="140" align="center">
+                      <template #default="{ row, $index }">
+                        <el-button link type="primary" @click="previewInstrumentAttachment(row)">查看</el-button>
+                        <el-button link type="danger" @click="removeInstrumentAttachment($index)">删除</el-button>
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                  <el-empty v-else description="暂无附件" :image-size="72" />
+                </div>
+              </el-form>
+            </div>
+          </div>
+          <template #footer>
+            <div class="drawer-footer instrument-dialog-footer">
+              <el-button @click="instrumentDrawerVisible = false">取消</el-button>
+              <el-button type="primary" :loading="instrumentSaving" @click="submitInstrumentForm">确定</el-button>
+            </div>
+          </template>
+        </el-dialog>
       </div>
     </template>
 
@@ -1986,23 +2534,6 @@
       </div>
     </template>
 
-    <!-- 其它主数据表 -->
-    <template v-else-if="currentTab">
-      <div class="toolbar">
-        <el-button size="small" @click="load(currentTab)">刷新</el-button>
-        <span v-if="currentTab.hint" class="hint">{{ currentTab.hint }}</span>
-      </div>
-      <el-table :data="currentTab.rows" border height="520" v-loading="currentTab.loading" class="md-table">
-        <el-table-column
-          v-for="c in currentTab.cols"
-          :key="c.prop"
-          :prop="c.prop"
-          :label="c.label"
-          min-width="120"
-        />
-      </el-table>
-    </template>
-
     <el-dialog
       v-model="authDialogVisible"
       :title="authDialogTitle"
@@ -2090,6 +2621,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Select, Close, Rank, Document, Setting, Folder, Upload, Download, Printer } from '@element-plus/icons-vue'
+import * as XLSX from 'xlsx'
 import http from '../api'
 import {
   effectiveOrgId,
@@ -2431,8 +2963,8 @@ const authMenuTreeFull = [
       { id: 'md-perms', label: '权限管理' },
       { id: 'md-vendors', label: '供应商维护' },
       { id: 'md-manufacturers', label: '生产厂家维护' },
-      { id: 'md-instruments', label: '器械字典' },
-      { id: 'md-templates', label: '包模板' },
+      { id: 'md-instruments', label: '器械基础档案' },
+      { id: 'md-templates', label: '器械包档案' },
       { id: 'md-devices', label: '设备维护' },
       { id: 'md-units', label: '单位维护' },
       { id: 'md-sys-config', label: '系统配置' }
@@ -4318,34 +4850,6 @@ async function deleteDeptRow(row) {
   await loadDeptPage()
 }
 
-const dataTabs = reactive([
-  {
-    key: 'instruments',
-    path: '/md/instruments',
-    cols: [
-      { prop: 'instrumentCode', label: '器械编码' },
-      { prop: 'instrumentName', label: '器械名称' },
-      { prop: 'spec', label: '规格' }
-    ],
-    rows: [],
-    loading: false
-  },
-  {
-    key: 'templates',
-    path: '/md/templates',
-    cols: [
-      { prop: 'templateCode', label: '模板编码' },
-      { prop: 'templateName', label: '模板名称' },
-      { prop: 'packCategory', label: '类别' },
-      { prop: 'needStore', label: '需入库' }
-    ],
-    rows: [],
-    loading: false
-  },
-])
-
-const currentTab = computed(() => dataTabs.find(t => t.key === active.value) || null)
-
 const permLoading = ref(false)
 const permRows = ref([])
 const permSelected = ref([])
@@ -4523,19 +5027,6 @@ async function deletePermRow(row) {
   loadPerms()
 }
 
-async function load(t) {
-  if (!t?.path) {
-    if (t) t.rows = []
-    return
-  }
-  t.loading = true
-  try {
-    t.rows = (await http.get(t.path, { params: { size: 50 } })).data.records || []
-  } finally {
-    t.loading = false
-  }
-}
-
 async function loadOrg() {
   orgLoading.value = true
   try {
@@ -4567,6 +5058,1054 @@ async function loadOrg() {
   }
 }
 
+/** 器械包档案 */
+const packCategoryOptions = [
+  { value: 'cssd_set', label: '常规包' },
+  { value: 'or_set', label: '手术室包' },
+  { value: 'loan', label: '寄消包' },
+  { value: 'external', label: '外来器械包' }
+]
+function formatPackCategory(v) {
+  return packCategoryOptions.find((x) => x.value === v)?.label || v || ''
+}
+const tplLoading = ref(false)
+const tplRows = ref([])
+const tplSelected = ref([])
+const tplTableRef = ref(null)
+const tplPanelRef = ref(null)
+const tplKeyword = ref('')
+const tplPage = ref(1)
+const tplPageSize = ref(10)
+const tplTotal = ref(0)
+const tplDrawerVisible = ref(false)
+const tplDialogMode = ref('create')
+const tplSaving = ref(false)
+const tplFormTab = ref('basic')
+const tplFormRef = ref(null)
+let tplNameInitialsTimer = null
+const tplForm = reactive({
+  id: '',
+  orgId: '',
+  templateCode: '',
+  templateName: '',
+  shortCode: '',
+  packCategory: 'cssd_set',
+  shelfLifeDays: null,
+  basketLoadQty: null,
+  safetyStockQty: null,
+  sterMethod: '',
+  needWash: 1,
+  washMode: 'scatter',
+  needPack: 1,
+  needStore: 1,
+  needRecycle: 1,
+  isImplant: 0,
+  isActive: 1,
+  remark: ''
+})
+const tplRules = {
+  orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
+  templateName: [{ required: true, message: '请输入包名称', trigger: 'blur' }],
+  packCategory: [{ required: true, message: '请选择包类别', trigger: 'change' }]
+}
+function tplIndex(i) {
+  return (tplPage.value - 1) * tplPageSize.value + i + 1
+}
+function searchTplPage() {
+  tplPage.value = 1
+  loadTplPage()
+}
+function onTplPageSizeChange() {
+  tplPage.value = 1
+  loadTplPage()
+}
+function onTplSelectionChange(rows) { tplSelected.value = rows }
+function onTplRowDblclick(row) {
+  tplTableRef.value?.toggleRowSelection(row, !tplSelected.value.some((r) => r.id === row.id))
+}
+function tplRowClassName({ row }) {
+  return tplSelected.value.some((r) => r.id === row.id) ? 'org-row-selected' : ''
+}
+async function loadTplPage() {
+  tplLoading.value = true
+  try {
+    const scope = await resolveStaffOrgScope()
+    await loadOrgOptions()
+    const kw = tplKeyword.value?.trim() || undefined
+    const params = { page: Number(tplPage.value) || 1, size: Number(tplPageSize.value) || 10 }
+    if (kw) params.keyword = kw
+    const oid = listOrgId(scope)
+    if (oid) params.orgId = oid
+    const res = await http.get('/md/templates', { params })
+    tplRows.value = res?.data?.records || []
+    tplTotal.value = Number(res?.data?.total || 0)
+    tplSelected.value = []
+  } catch (e) {
+    ElMessage.error(e?.message || '器械包列表加载失败')
+  } finally {
+    tplLoading.value = false
+  }
+}
+function fillTplForm(row) {
+  tplForm.id = row?.id || ''
+  tplForm.orgId = row?.orgId || ''
+  tplForm.templateCode = row?.templateCode || ''
+  tplForm.templateName = row?.templateName || ''
+  tplForm.shortCode = row?.shortCode || ''
+  tplForm.packCategory = row?.packCategory || 'cssd_set'
+  tplForm.shelfLifeDays = row?.shelfLifeDays ?? null
+  tplForm.basketLoadQty = row?.basketLoadQty ?? null
+  tplForm.safetyStockQty = row?.safetyStockQty ?? null
+  tplForm.sterMethod = row?.sterMethod || ''
+  tplForm.needWash = row?.needWash ?? 1
+  tplForm.washMode = row?.washMode || 'scatter'
+  tplForm.needPack = row?.needPack ?? 1
+  tplForm.needStore = row?.needStore ?? 1
+  tplForm.needRecycle = row?.needRecycle ?? 1
+  tplForm.isImplant = row?.isImplant ?? 0
+  tplForm.isActive = row?.isActive ?? 1
+  tplForm.remark = row?.remark || ''
+}
+function resetTplForm() {
+  fillTplForm(null)
+  tplFormTab.value = 'basic'
+  tplFormRef.value?.clearValidate?.()
+}
+function onTplNameInput() {
+  clearTimeout(tplNameInitialsTimer)
+  tplNameInitialsTimer = setTimeout(async () => {
+    tplForm.shortCode = await fetchNameInitials(tplForm.templateName)
+  }, 200)
+}
+async function openTplCreate() {
+  await loadOrgOptions()
+  tplDialogMode.value = 'create'
+  resetTplForm()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope)
+  if (oid) tplForm.orgId = oid
+  else if (isPlatformAdmin.value) tplForm.orgId = effectiveOrgId() || orgOptions.value[0]?.id || ''
+  tplDrawerVisible.value = true
+}
+async function openTplEdit(row) {
+  await loadOrgOptions()
+  tplDialogMode.value = 'edit'
+  tplFormTab.value = 'basic'
+  fillTplForm(row)
+  tplDrawerVisible.value = true
+}
+async function submitTplForm() {
+  const form = tplFormRef.value
+  if (!form) return
+  await form.validate(async (ok) => {
+    if (!ok) return
+    tplSaving.value = true
+    try {
+      const scope = await resolveStaffOrgScope()
+      const oid = listOrgId(scope) || tplForm.orgId
+      const payload = {
+        orgId: oid,
+        templateCode: tplForm.templateCode?.trim() || null,
+        templateName: tplForm.templateName.trim(),
+        shortCode: (tplForm.shortCode?.trim() || '').toUpperCase() || null,
+        packCategory: tplForm.packCategory,
+        shelfLifeDays: tplForm.shelfLifeDays,
+        basketLoadQty: tplForm.basketLoadQty,
+        safetyStockQty: tplForm.safetyStockQty,
+        sterMethod: tplForm.sterMethod || null,
+        needWash: tplForm.needWash,
+        washMode: tplForm.washMode || 'scatter',
+        needPack: tplForm.needPack,
+        needStore: tplForm.needStore,
+        needRecycle: tplForm.needRecycle,
+        isImplant: tplForm.isImplant,
+        isActive: tplForm.isActive,
+        remark: tplForm.remark?.trim() || null
+      }
+      if (tplDialogMode.value === 'edit') payload.id = tplForm.id
+      await http.post('/md/templates', payload)
+      ElMessage.success(tplDialogMode.value === 'edit' ? '器械包已修改' : '器械包已新增')
+      tplDrawerVisible.value = false
+      await loadTplPage()
+    } finally {
+      tplSaving.value = false
+    }
+  })
+}
+async function deleteTplRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除器械包「${row.templateCode} ${row.templateName}」？`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  await http.delete(`/md/templates/${row.id}`)
+  ElMessage.success('已删除')
+  await loadTplPage()
+}
+
+/** 器械基础档案 */
+const instrumentLoading = ref(false)
+const instrumentRows = ref([])
+const instrumentSelected = ref([])
+const instrumentTableRef = ref(null)
+const instrumentPanelRef = ref(null)
+const instrumentKeyword = ref('')
+const instrumentPage = ref(1)
+const instrumentPageSize = ref(10)
+const instrumentTotal = ref(0)
+const instrumentDrawerVisible = ref(false)
+const instrumentDialogMode = ref('create')
+const instrumentSaving = ref(false)
+const instrumentFormTab = ref('basic')
+const instrumentFormRef = ref(null)
+const instrumentImageList = ref([])
+const instrumentAttachmentList = ref([])
+const instrumentMfrOptions = ref([])
+const instrumentVendorOptions = ref([])
+const instrumentUnitOptions = ref([])
+const instrumentCategoryOptions = ['手术器械', '诊疗器械', '植入器械', '外来器械', '其他']
+const instrumentTypeOptions = ['锐器', '钝器', '腔镜', '动力器械', '管路', '其他']
+const instrumentSterMethodOptions = [
+  { value: 'high', label: '高温蒸汽' },
+  { value: 'low', label: '低温' },
+  { value: 'eo', label: '环氧乙烷' },
+  { value: 'plasma', label: '过氧化氢等离子' }
+]
+const instrumentWashMethodOptions = ['手工清洗', '超声清洗', '机洗', '禁止超声清洗']
+const instrumentStorageAttrOptions = ['常温干燥', '恒温', '避光', '专柜存放']
+const instrumentStatusOptions = ['在用', '停用', '维修', '借出', '报废']
+let instrumentNameInitialsTimer = null
+const instrumentForm = reactive({
+  id: '',
+  orgId: '',
+  instrumentCode: '',
+  instrumentName: '',
+  shortCode: '',
+  aliasName: '',
+  englishName: '',
+  brandName: '',
+  spec: '',
+  model: '',
+  udi: '',
+  registerNo: '',
+  registerValidUntil: '',
+  barcode: '',
+  materialName: '',
+  instrumentCategory: '',
+  instrumentType: '',
+  sterMethod: '',
+  washMethod: '',
+  packRequirement: '',
+  costPrice: null,
+  unitId: '',
+  manufacturerId: '',
+  vendorId: '',
+  storageAttr: '',
+  isHighValue: 0,
+  isKeyMonitor: 0,
+  currentStatus: '在用',
+  isActive: 1,
+  remark: ''
+})
+const instrumentRules = {
+  orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
+  instrumentName: [{ required: true, message: '请输入器械名称', trigger: 'blur' }]
+}
+function instrumentIndex(i) {
+  return (instrumentPage.value - 1) * instrumentPageSize.value + i + 1
+}
+function searchInstrumentPage() {
+  instrumentPage.value = 1
+  loadInstrumentPage()
+}
+function onInstrumentPageSizeChange() {
+  instrumentPage.value = 1
+  loadInstrumentPage()
+}
+function onInstrumentSelectionChange(rows) { instrumentSelected.value = rows }
+function onInstrumentRowDblclick(row) {
+  instrumentTableRef.value?.toggleRowSelection(row, !instrumentSelected.value.some((r) => r.id === row.id))
+}
+function instrumentRowClassName({ row }) {
+  return instrumentSelected.value.some((r) => r.id === row.id) ? 'org-row-selected' : ''
+}
+async function loadInstrumentPage() {
+  instrumentLoading.value = true
+  try {
+    const scope = await resolveStaffOrgScope()
+    await loadOrgOptions()
+    const kw = instrumentKeyword.value?.trim() || undefined
+    const params = { page: Number(instrumentPage.value) || 1, size: Number(instrumentPageSize.value) || 10 }
+    if (kw) params.keyword = kw
+    const oid = listOrgId(scope)
+    if (oid) params.orgId = oid
+    const res = await http.get('/md/instruments', { params })
+    instrumentRows.value = res?.data?.records || []
+    instrumentTotal.value = Number(res?.data?.total || 0)
+    instrumentSelected.value = []
+  } catch (e) {
+    ElMessage.error(e?.message || '器械列表加载失败')
+  } finally {
+    instrumentLoading.value = false
+  }
+}
+function parseInstrumentJsonList(raw) {
+  if (Array.isArray(raw)) return raw
+  if (!raw) return []
+  try {
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
+}
+function fillInstrumentForm(row) {
+  instrumentForm.id = row?.id || ''
+  instrumentForm.orgId = row?.orgId || ''
+  instrumentForm.instrumentCode = row?.instrumentCode || ''
+  instrumentForm.instrumentName = row?.instrumentName || ''
+  instrumentForm.shortCode = row?.shortCode || ''
+  instrumentForm.aliasName = row?.aliasName || ''
+  instrumentForm.englishName = row?.englishName || ''
+  instrumentForm.brandName = row?.brandName || ''
+  instrumentForm.spec = row?.spec || ''
+  instrumentForm.model = row?.model || ''
+  instrumentForm.udi = row?.udi || ''
+  instrumentForm.registerNo = row?.registerNo || ''
+  instrumentForm.registerValidUntil = row?.registerValidUntil || ''
+  instrumentForm.barcode = row?.barcode || ''
+  instrumentForm.materialName = row?.materialName || ''
+  instrumentForm.instrumentCategory = row?.instrumentCategory || ''
+  instrumentForm.instrumentType = row?.instrumentType || ''
+  instrumentForm.sterMethod = row?.sterMethod || ''
+  instrumentForm.washMethod = row?.washMethod || ''
+  instrumentForm.packRequirement = row?.packRequirement || ''
+  instrumentForm.costPrice = row?.costPrice != null && row?.costPrice !== '' ? Number(row.costPrice) : null
+  instrumentForm.unitId = row?.unitId || ''
+  instrumentForm.manufacturerId = row?.manufacturerId || ''
+  instrumentForm.vendorId = row?.vendorId || ''
+  instrumentForm.storageAttr = row?.storageAttr || ''
+  instrumentForm.isHighValue = row?.isHighValue ?? 0
+  instrumentForm.isKeyMonitor = row?.isKeyMonitor ?? 0
+  instrumentForm.currentStatus = row?.currentStatus || '在用'
+  instrumentForm.isActive = row?.isActive ?? 1
+  instrumentForm.remark = row?.remark || ''
+  instrumentImageList.value = parseInstrumentJsonList(row?.instrumentImages).map((x) => ({
+    name: x?.name || 'image',
+    dataUrl: x?.dataUrl || ''
+  })).filter((x) => x.dataUrl)
+  instrumentAttachmentList.value = parseInstrumentJsonList(row?.instrumentAttachments).map((x) => ({
+    name: x?.name || 'file',
+    dataUrl: x?.dataUrl || ''
+  })).filter((x) => x.dataUrl)
+}
+function resetInstrumentForm() {
+  fillInstrumentForm(null)
+  instrumentFormTab.value = 'basic'
+  instrumentMfrOptions.value = []
+  instrumentVendorOptions.value = []
+  instrumentUnitOptions.value = []
+  instrumentFormRef.value?.clearValidate?.()
+}
+async function loadInstrumentDictOptions(orgId) {
+  const params = { page: 1, size: 500 }
+  if (orgId) params.orgId = orgId
+  try {
+    const [mfrRes, vendorRes, unitRes] = await Promise.all([
+      http.get('/md/manufacturers', { params }),
+      http.get('/md/vendors', { params }),
+      http.get('/md/units', { params })
+    ])
+    instrumentMfrOptions.value = (mfrRes?.data?.records || []).filter((r) => r.isActive !== 0)
+    instrumentVendorOptions.value = (vendorRes?.data?.records || []).filter((r) => r.isActive !== 0)
+    instrumentUnitOptions.value = (unitRes?.data?.records || []).filter((r) => r.isActive !== 0)
+  } catch (e) {
+    instrumentMfrOptions.value = []
+    instrumentVendorOptions.value = []
+    instrumentUnitOptions.value = []
+    ElMessage.error(e?.message || '厂家/供应商/单位选项加载失败')
+  }
+}
+async function onInstrumentOrgChange(orgId) {
+  instrumentForm.manufacturerId = ''
+  instrumentForm.vendorId = ''
+  instrumentForm.unitId = ''
+  await loadInstrumentDictOptions(orgId)
+}
+function onInstrumentNameInput() {
+  clearTimeout(instrumentNameInitialsTimer)
+  instrumentNameInitialsTimer = setTimeout(async () => {
+    instrumentForm.shortCode = await fetchNameInitials(instrumentForm.instrumentName)
+  }, 200)
+}
+function onInstrumentImageChange(file) {
+  const raw = file?.raw
+  if (!raw) return
+  if (raw.size > 3 * 1024 * 1024) {
+    ElMessage.warning('单张图片请控制在 3MB 以内')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    instrumentImageList.value.push({ name: raw.name, dataUrl: String(reader.result || '') })
+  }
+  reader.readAsDataURL(raw)
+}
+function removeInstrumentImage(idx) {
+  instrumentImageList.value.splice(idx, 1)
+}
+function onInstrumentAttachmentChange(file) {
+  const raw = file?.raw
+  if (!raw) return
+  if (raw.size > 5 * 1024 * 1024) {
+    ElMessage.warning('附件请控制在 5MB 以内')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    instrumentAttachmentList.value.push({ name: raw.name, dataUrl: String(reader.result || '') })
+  }
+  reader.readAsDataURL(raw)
+}
+function removeInstrumentAttachment(idx) {
+  instrumentAttachmentList.value.splice(idx, 1)
+}
+function previewInstrumentAttachment(row) {
+  if (!row?.dataUrl) return
+  const a = document.createElement('a')
+  a.href = row.dataUrl
+  a.target = '_blank'
+  a.rel = 'noopener'
+  a.download = row.name || 'attachment'
+  a.click()
+}
+function formatInstrumentCostPrice(v) {
+  if (v == null || v === '') return ''
+  const n = Number(v)
+  return Number.isFinite(n) ? n.toFixed(4).replace(/\.?0+$/, '') : String(v)
+}
+function formatInstrumentDate(v) {
+  if (!v) return ''
+  const s = String(v)
+  return s.length >= 10 ? s.slice(0, 10) : s
+}
+async function openInstrumentCreate() {
+  await loadOrgOptions()
+  instrumentDialogMode.value = 'create'
+  resetInstrumentForm()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope)
+  if (oid) instrumentForm.orgId = oid
+  else if (isPlatformAdmin.value) instrumentForm.orgId = effectiveOrgId() || orgOptions.value[0]?.id || ''
+  await loadInstrumentDictOptions(instrumentForm.orgId)
+  instrumentDrawerVisible.value = true
+}
+async function openInstrumentCopy(row) {
+  await loadOrgOptions()
+  instrumentDialogMode.value = 'create'
+  instrumentFormTab.value = 'basic'
+  fillInstrumentForm(row)
+  // 复制为新增：清空主键与唯一字段，其余沿用
+  instrumentForm.id = ''
+  instrumentForm.instrumentCode = ''
+  instrumentForm.barcode = ''
+  instrumentForm.udi = ''
+  await loadInstrumentDictOptions(instrumentForm.orgId)
+  instrumentDrawerVisible.value = true
+}
+async function openInstrumentEdit(row) {
+  await loadOrgOptions()
+  instrumentDialogMode.value = 'edit'
+  instrumentFormTab.value = 'basic'
+  fillInstrumentForm(row)
+  await loadInstrumentDictOptions(instrumentForm.orgId)
+  instrumentDrawerVisible.value = true
+}
+async function submitInstrumentForm() {
+  const form = instrumentFormRef.value
+  if (!form) return
+  await form.validate(async (ok) => {
+    if (!ok) {
+      instrumentFormTab.value = 'basic'
+      return
+    }
+    instrumentSaving.value = true
+    try {
+      const scope = await resolveStaffOrgScope()
+      const oid = listOrgId(scope) || instrumentForm.orgId
+      const payload = {
+        orgId: oid,
+        instrumentCode: instrumentForm.instrumentCode?.trim() || null,
+        instrumentName: instrumentForm.instrumentName.trim(),
+        shortCode: (instrumentForm.shortCode?.trim() || '').toUpperCase() || null,
+        aliasName: instrumentForm.aliasName?.trim() || null,
+        englishName: instrumentForm.englishName?.trim() || null,
+        brandName: instrumentForm.brandName?.trim() || null,
+        spec: instrumentForm.spec?.trim() || null,
+        model: instrumentForm.model?.trim() || null,
+        udi: instrumentForm.udi?.trim() || null,
+        registerNo: instrumentForm.registerNo?.trim() || null,
+        registerValidUntil: instrumentForm.registerValidUntil || null,
+        barcode: instrumentForm.barcode?.trim() || null,
+        materialName: instrumentForm.materialName?.trim() || null,
+        instrumentCategory: instrumentForm.instrumentCategory || null,
+        instrumentType: instrumentForm.instrumentType || null,
+        sterMethod: instrumentForm.sterMethod || null,
+        washMethod: instrumentForm.washMethod || null,
+        packRequirement: instrumentForm.packRequirement?.trim() || null,
+        costPrice: instrumentForm.costPrice != null && instrumentForm.costPrice !== '' ? instrumentForm.costPrice : null,
+        unitId: instrumentForm.unitId || null,
+        manufacturerId: instrumentForm.manufacturerId || null,
+        vendorId: instrumentForm.vendorId || null,
+        storageAttr: instrumentForm.storageAttr || null,
+        isHighValue: instrumentForm.isHighValue,
+        isKeyMonitor: instrumentForm.isKeyMonitor,
+        currentStatus: instrumentForm.currentStatus || '在用',
+        isActive: instrumentForm.isActive,
+        remark: instrumentForm.remark?.trim() || null,
+        instrumentImages: JSON.stringify(instrumentImageList.value.filter((x) => x?.dataUrl)),
+        instrumentAttachments: JSON.stringify(instrumentAttachmentList.value.filter((x) => x?.dataUrl))
+      }
+      if (instrumentDialogMode.value === 'edit') payload.id = instrumentForm.id
+      await http.post('/md/instruments', payload)
+      ElMessage.success(instrumentDialogMode.value === 'edit' ? '器械已修改' : '器械已新增')
+      instrumentDrawerVisible.value = false
+      await loadInstrumentPage()
+    } finally {
+      instrumentSaving.value = false
+    }
+  })
+}
+async function deleteInstrumentRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除器械「${row.instrumentCode} ${row.instrumentName}」？`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  await http.delete(`/md/instruments/${row.id}`)
+  ElMessage.success('已删除')
+  await loadInstrumentPage()
+}
+
+/** 器械基础档案导入 */
+const INSTRUMENT_IMPORT_HEADERS = [
+  '器械编码', '器械名称', '别名', '英文名称', '品牌', '规格', '型号', 'UDI',
+  '生产厂家', '供应商', '注册证号', '注册证有效期', '材质', '器械条码',
+  '器械分类', '器械类型', '灭菌方式', '清洗方式', '包装要求'
+]
+const INSTRUMENT_IMPORT_REQUIRED = new Set(['器械名称'])
+const instrumentImportVisible = ref(false)
+const instrumentImportFile = ref(null)
+const instrumentImportFileName = ref('')
+const instrumentImportRows = ref([])
+const instrumentImportSaving = ref(false)
+const instrumentImportDone = ref(0)
+const instrumentImportTotal = ref(0)
+const instrumentImportProgress = computed(() => {
+  const total = instrumentImportTotal.value
+  if (!total) return 0
+  return Math.min(100, Math.round((instrumentImportDone.value / total) * 100))
+})
+async function openInstrumentImport() {
+  instrumentImportFile.value = null
+  instrumentImportFileName.value = ''
+  instrumentImportRows.value = []
+  instrumentImportSaving.value = false
+  instrumentImportDone.value = 0
+  instrumentImportTotal.value = 0
+  await loadOrgOptions()
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope) || effectiveOrgId() || orgOptions.value[0]?.id || ''
+  await loadInstrumentDictOptions(oid)
+  instrumentImportVisible.value = true
+}
+function downloadInstrumentImportTemplate() {
+  const sampleMfr = instrumentMfrOptions.value[0]?.mfrName || '演示厂家'
+  const sampleVendor = instrumentVendorOptions.value[0]?.vendorName || '演示供应商'
+  const headers = INSTRUMENT_IMPORT_HEADERS.map((h) => (INSTRUMENT_IMPORT_REQUIRED.has(h) ? `${h}*` : h))
+  const sampleVals = [
+    'SSJ-0001', '持针器', '针持', 'Needle Holder', '示例品牌', '18cm', '标准型', 'UDI0001',
+    sampleMfr, sampleVendor, '械注准20200001', '2030-12-31', '不锈钢', '6900000000001',
+    '手术器械', '锐器', '高温蒸汽', '机洗', '独立包装'
+  ]
+  const aoa = [headers, sampleVals]
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  // 全部按文本，避免 Excel 把编码/日期改成数字
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+  for (let R = range.s.r; R <= range.e.r; R++) {
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({ r: R, c: C })
+      if (!ws[addr]) continue
+      ws[addr].t = 's'
+      ws[addr].z = '@'
+    }
+  }
+  ws['!cols'] = headers.map(() => ({ wch: 14 }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '器械导入')
+  XLSX.writeFile(wb, '器械基础档案导入模板.xlsx')
+  ElMessage.success('模板已下载（.xlsx），请勿改表头列名后填写再导入')
+}
+function onInstrumentImportFileChange(file) {
+  instrumentImportFile.value = file?.raw || null
+  instrumentImportFileName.value = file?.name || ''
+  instrumentImportRows.value = []
+  if (instrumentImportFile.value) {
+    nextTick(() => parseInstrumentImportFile())
+  }
+}
+function decodeInstrumentImportBuffer(buf) {
+  const encodings = ['utf-8', 'utf-16le', 'gb18030', 'gbk']
+  let fallback = ''
+  for (const enc of encodings) {
+    try {
+      const text = new TextDecoder(enc, { fatal: false }).decode(buf)
+      if (!fallback) fallback = text
+      if (/器械名称/.test(text)) return text
+      if (!text.includes('\uFFFD') && /器械编码/.test(text)) return text
+    } catch { /* try next */ }
+  }
+  return fallback || new TextDecoder('utf-8').decode(buf)
+}
+function normalizeInstrumentHeaderCell(h) {
+  return normalizeImportHeader(h).replace(/\*+$/, '').toLowerCase()
+}
+function resolveInstrumentHeaderIndex(headers) {
+  const aliases = {
+    器械编码: ['器械编码', 'instrumentcode', '编码'],
+    器械名称: ['器械名称', 'instrumentname', '名称'],
+    别名: ['别名', 'aliasname'],
+    英文名称: ['英文名称', '英文名', 'englishname'],
+    品牌: ['品牌', '品牌名称', 'brandname', 'brand'],
+    规格: ['规格', 'spec'],
+    型号: ['型号', 'model'],
+    UDI: ['udi', 'udi码', '唯一器械标识'],
+    生产厂家: ['生产厂家', '厂家', '厂家名称', '制造商', '生产厂商', 'manufacturername', 'manufacturer'],
+    供应商: ['供应商', '供应商名称', '供货商', 'vendorname', 'vendor'],
+    注册证号: ['注册证号', '注册证', 'registerno'],
+    注册证有效期: ['注册证有效期', '有效期', '注册证到期日', 'registervaliduntil'],
+    材质: ['材质', '材料', 'materialname'],
+    器械条码: ['器械条码', '条码', 'barcode'],
+    器械分类: ['器械分类', '分类', 'instrumentcategory'],
+    器械类型: ['器械类型', '类型', 'instrumenttype'],
+    灭菌方式: ['灭菌方式', 'stermethod'],
+    清洗方式: ['清洗方式', 'washmethod'],
+    包装要求: ['包装要求', '包装', 'packrequirement']
+  }
+  // 短别名（名称/编码/厂家）可能误伤长表头，优先精确匹配完整表头
+  const normalized = headers.map(normalizeInstrumentHeaderCell)
+  const used = new Set()
+  const map = {}
+  const tryMatch = (key, allowShort) => {
+    if (map[key] >= 0) return
+    const list = aliases[key] || []
+    for (let i = 0; i < normalized.length; i++) {
+      if (used.has(i)) continue
+      const nh = normalized[i]
+      if (!nh) continue
+      for (const a of list) {
+        const na = normalizeInstrumentHeaderCell(a)
+        if (!na) continue
+        const short = na.length <= 2
+        if (!allowShort && short) continue
+        if (nh === na) {
+          map[key] = i
+          used.add(i)
+          return
+        }
+      }
+    }
+  }
+  Object.keys(aliases).forEach((key) => { map[key] = -1 })
+  Object.keys(aliases).forEach((key) => tryMatch(key, false))
+  Object.keys(aliases).forEach((key) => tryMatch(key, true))
+  return map
+}
+function scoreInstrumentHeaderCol(col) {
+  return INSTRUMENT_IMPORT_HEADERS.reduce((n, h) => n + (col[h] >= 0 ? 1 : 0), 0)
+}
+function pickInstrumentHeaderRow(matrix) {
+  const scan = Math.min(matrix.length, 10)
+  let best = null
+  let bestScore = -1
+  for (let i = 0; i < scan; i++) {
+    const headers = (matrix[i] || []).map((h) => String(h ?? ''))
+    const normalized = headers.map(normalizeInstrumentHeaderCell)
+    const first = normalized[0] || ''
+    // 模板列序完全一致时直接按位置取值（最稳）
+    if (first === '器械编码') {
+      let matched = 0
+      for (let c = 0; c < Math.min(headers.length, INSTRUMENT_IMPORT_HEADERS.length); c++) {
+        const expect = normalizeInstrumentHeaderCell(INSTRUMENT_IMPORT_HEADERS[c])
+        const actual = normalized[c] || ''
+        if (!actual) continue
+        if (actual === expect || actual === expect + '*' || (INSTRUMENT_IMPORT_HEADERS[c] === 'UDI' && (actual === 'udi' || actual === 'udi码'))) {
+          matched++
+        }
+      }
+      if (matched >= 8) {
+        const fixed = {}
+        INSTRUMENT_IMPORT_HEADERS.forEach((h, idx) => { fixed[h] = idx })
+        return { headerIndex: i, headers, col: fixed, score: INSTRUMENT_IMPORT_HEADERS.length }
+      }
+    }
+    const col = resolveInstrumentHeaderIndex(headers)
+    const score = scoreInstrumentHeaderCol(col)
+    if (col['器械名称'] >= 0 && score > bestScore) {
+      bestScore = score
+      best = { headerIndex: i, headers, col, score }
+    }
+  }
+  return best && best.score >= 2 ? best : null
+}
+function cellToImportText(cell) {
+  if (cell == null || cell === '') return ''
+  if (cell instanceof Date && !Number.isNaN(cell.getTime())) {
+    const y = cell.getFullYear()
+    const m = String(cell.getMonth() + 1).padStart(2, '0')
+    const d = String(cell.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  if (typeof cell === 'object' && cell.v != null) {
+    if (cell.t === 'd' && cell.v instanceof Date) return cellToImportText(cell.v)
+    return String(cell.w ?? cell.v ?? '').replace(/^\ufeff/, '').trim()
+  }
+  return String(cell).replace(/^\ufeff/, '').trim()
+}
+function parseInstrumentExcelMatrix(buf) {
+  try {
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true })
+    const name = wb.SheetNames?.[0]
+    if (!name) return null
+    const sheet = wb.Sheets[name]
+    if (!sheet || !sheet['!ref']) return null
+    const range = XLSX.utils.decode_range(sheet['!ref'])
+    // 至少保留模板列数，防止尾列被 Excel 裁掉后丢「包装要求」等
+    range.e.c = Math.max(range.e.c, INSTRUMENT_IMPORT_HEADERS.length - 1)
+    const rows = []
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      const row = []
+      let any = false
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C })
+        const text = cellToImportText(sheet[addr])
+        if (text) any = true
+        row.push(text)
+      }
+      if (any) rows.push(row)
+    }
+    return rows.length ? rows : null
+  } catch {
+    return null
+  }
+}
+function matchInstrumentMfrByLabel(raw) {
+  const v = String(raw || '').trim()
+  if (!v) return { hit: null, ok: true }
+  const nv = normalizeImportHeader(v)
+  const hit = instrumentMfrOptions.value.find((m) => {
+    const name = String(m.mfrName || '')
+    const code = String(m.mfrCode || '')
+    return name === v || normalizeImportHeader(name) === nv
+      || code === v || normalizeImportHeader(code) === nv
+  })
+  return { hit: hit || null, ok: !!hit }
+}
+function matchInstrumentVendorByLabel(raw) {
+  const v = String(raw || '').trim()
+  if (!v) return { hit: null, ok: true }
+  const nv = normalizeImportHeader(v)
+  const hit = instrumentVendorOptions.value.find((m) => {
+    const name = String(m.vendorName || '')
+    const code = String(m.vendorCode || '')
+    return name === v || normalizeImportHeader(name) === nv
+      || code === v || normalizeImportHeader(code) === nv
+  })
+  return { hit: hit || null, ok: !!hit }
+}
+function matchInstrumentSterMethod(raw) {
+  const v = String(raw || '').trim()
+  if (!v) return { value: '', ok: true }
+  const nv = normalizeImportHeader(v)
+  const byValue = instrumentSterMethodOptions.find((o) => o.value === v || normalizeImportHeader(o.value) === nv)
+  if (byValue) return { value: byValue.value, ok: true }
+  const byLabel = instrumentSterMethodOptions.find((o) => {
+    const label = String(o.label || '')
+    return label === v || normalizeImportHeader(label) === nv
+      || normalizeImportHeader(label).includes(nv) || nv.includes(normalizeImportHeader(label))
+  })
+  if (byLabel) return { value: byLabel.value, ok: true }
+  if (['高温', '蒸汽', '高温蒸汽灭菌'].some((k) => nv.includes(normalizeImportHeader(k)))) {
+    return { value: 'high', ok: true }
+  }
+  if (nv.includes('环氧') || nv === 'eo') return { value: 'eo', ok: true }
+  if (nv.includes('等离子') || nv === 'plasma') return { value: 'plasma', ok: true }
+  if (nv.includes('低温') || nv === 'low') return { value: 'low', ok: true }
+  return { value: '', ok: false }
+}
+function normalizeInstrumentImportDate(raw) {
+  const v = String(raw || '').trim()
+  if (!v) return { value: null, ok: true }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return { value: v, ok: true }
+  const m = v.match(/^(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})/)
+  if (m) {
+    const y = m[1]
+    const mo = String(m[2]).padStart(2, '0')
+    const d = String(m[3]).padStart(2, '0')
+    return { value: `${y}-${mo}-${d}`, ok: true }
+  }
+  // Excel 序列日（约 1900 体系）
+  if (/^\d+(\.\d+)?$/.test(v)) {
+    const serial = Number(v)
+    if (serial >= 20000 && serial <= 80000) {
+      const utc = Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000
+      const dt = new Date(utc)
+      const y = dt.getUTCFullYear()
+      const mo = String(dt.getUTCMonth() + 1).padStart(2, '0')
+      const d = String(dt.getUTCDate()).padStart(2, '0')
+      return { value: `${y}-${mo}-${d}`, ok: true }
+    }
+  }
+  return { value: null, ok: false }
+}
+async function loadExistingInstrumentCodeSet() {
+  const set = new Set()
+  const size = 500
+  try {
+    const scope = await resolveStaffOrgScope()
+    const oid = listOrgId(scope)
+    const base = { page: 1, size }
+    if (oid) base.orgId = oid
+    const first = await http.get('/md/instruments', { params: base })
+    for (const r of (first.data.records || [])) {
+      const code = String(r.instrumentCode || '').trim()
+      if (code) set.add(code)
+    }
+    const total = Number(first.data.total || 0)
+    const pages = Math.min(Math.ceil(total / size) || 1, 40)
+    for (let page = 2; page <= pages; page++) {
+      const res = await http.get('/md/instruments', { params: { ...base, page } })
+      for (const r of (res.data.records || [])) {
+        const code = String(r.instrumentCode || '').trim()
+        if (code) set.add(code)
+      }
+    }
+  } catch { /* 查重失败时仍允许解析 */ }
+  return set
+}
+async function parseInstrumentImportFile() {
+  if (!instrumentImportFile.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+  const scope = await resolveStaffOrgScope()
+  const oid = listOrgId(scope) || effectiveOrgId() || orgOptions.value[0]?.id || ''
+  await loadInstrumentDictOptions(oid)
+  const existingCodes = await loadExistingInstrumentCodeSet()
+  const buf = await instrumentImportFile.value.arrayBuffer()
+  const text = decodeInstrumentImportBuffer(buf)
+  const candidates = []
+  // 优先 SheetJS（真实 xlsx/xls）；其次 HTML 表；最后纯 CSV
+  const excelMatrix = parseInstrumentExcelMatrix(buf)
+  if (excelMatrix?.length) candidates.push(excelMatrix)
+  if (/<table[\s>]/i.test(text)) {
+    const htmlMatrix = parseHtmlTableRows(text)
+    if (htmlMatrix?.length) candidates.push(htmlMatrix)
+  }
+  if (!excelMatrix?.length) {
+    const lines = text.replace(/^\ufeff/, '').split(/\r?\n/).filter((l) => l.trim())
+    if (lines.length) {
+      const delimiter = detectCsvDelimiter(lines[0])
+      candidates.push(lines.map((l) => splitCsvLine(l, delimiter)))
+    }
+  }
+  let picked = null
+  let matrix = null
+  let bestScore = -1
+  for (const m of candidates) {
+    const hit = pickInstrumentHeaderRow(m)
+    if (hit && hit.score > bestScore) {
+      bestScore = hit.score
+      matrix = m
+      picked = hit
+    }
+  }
+  if (!picked || !matrix) {
+    const preview = (candidates[0]?.[0] || []).map(normalizeImportHeader).filter(Boolean).slice(0, 8).join('、')
+    ElMessage.error(preview
+      ? `模板表头不正确（识别到：${preview}），请重新点击「下载模板」后再选择该文件解析`
+      : '未能识别文件内容，请重新下载模板')
+    instrumentImportRows.value = []
+    return
+  }
+  const { headerIndex, col } = picked
+  const getFrom = (cols, key) => {
+    const i = col[key]
+    if (i == null || i < 0) return ''
+    return String(cols[i] ?? '').replace(/^\ufeff/, '').trim()
+  }
+  const rows = []
+  const seenInFile = new Set()
+  for (let li = headerIndex + 1; li < matrix.length; li++) {
+    const cols = matrix[li] || []
+    const instrumentCode = getFrom(cols, '器械编码')
+    const instrumentName = getFrom(cols, '器械名称')
+    if (!instrumentCode && !instrumentName) continue
+    if (normalizeImportHeader(instrumentCode).includes('器械编码') || instrumentName === '器械基础档案导入') continue
+    if (normalizeImportHeader(instrumentName).includes('器械名称')) continue
+    const mfrRaw = getFrom(cols, '生产厂家')
+    const vendorRaw = getFrom(cols, '供应商')
+    const mfrHit = matchInstrumentMfrByLabel(mfrRaw)
+    const vendorHit = matchInstrumentVendorByLabel(vendorRaw)
+    const sterHit = matchInstrumentSterMethod(getFrom(cols, '灭菌方式'))
+    const dateHit = normalizeInstrumentImportDate(getFrom(cols, '注册证有效期'))
+    const errors = []
+    if (!instrumentName) errors.push('缺器械名称')
+    // 厂家/供应商不在字典时导入过程自动创建，此处不拦截
+    if (getFrom(cols, '灭菌方式') && !sterHit.ok) errors.push('灭菌方式无效')
+    if (getFrom(cols, '注册证有效期') && !dateHit.ok) errors.push('注册证有效期格式错误')
+    if (instrumentCode && existingCodes.has(instrumentCode)) {
+      errors.push('系统已存在，请勿重复导入')
+    } else if (instrumentCode && seenInFile.has(instrumentCode)) {
+      errors.push('文件内器械编码重复')
+    }
+    if (instrumentCode) seenInFile.add(instrumentCode)
+    rows.push({
+      instrumentCode,
+      instrumentName,
+      aliasName: getFrom(cols, '别名') || null,
+      englishName: getFrom(cols, '英文名称') || null,
+      brandName: getFrom(cols, '品牌') || null,
+      spec: getFrom(cols, '规格') || null,
+      model: getFrom(cols, '型号') || null,
+      udi: getFrom(cols, 'UDI') || null,
+      manufacturerName: (mfrHit.hit?.mfrName || mfrRaw || '').trim() || null,
+      manufacturerId: mfrHit.hit?.id || null,
+      vendorName: (vendorHit.hit?.vendorName || vendorRaw || '').trim() || null,
+      vendorId: vendorHit.hit?.id || null,
+      registerNo: getFrom(cols, '注册证号') || null,
+      registerValidUntil: dateHit.value,
+      materialName: getFrom(cols, '材质') || null,
+      barcode: getFrom(cols, '器械条码') || null,
+      instrumentCategory: getFrom(cols, '器械分类') || null,
+      instrumentType: getFrom(cols, '器械类型') || null,
+      sterMethod: sterHit.value || null,
+      washMethod: getFrom(cols, '清洗方式') || null,
+      packRequirement: getFrom(cols, '包装要求') || null,
+      error: errors.join('；')
+    })
+  }
+  instrumentImportRows.value = rows
+  if (!rows.length) ElMessage.warning('未解析到数据行，请在模板中填写后再解析')
+  else {
+    const bad = rows.filter((r) => r.error).length
+    const withExt = rows.filter((r) => r.brandName || r.englishName || r.udi || r.manufacturerName || r.vendorName || r.packRequirement).length
+    const tip = bad ? `，其中 ${bad} 条校验未通过` : ''
+    ElMessage.success(`已解析 ${rows.length} 行${tip}（识别 ${bestScore} 列，含扩展字段 ${withExt} 行）`)
+  }
+}
+async function ensureInstrumentMfrId(orgId, name, id) {
+  if (id) return id
+  const n = String(name || '').trim()
+  if (!n) return null
+  const hit = matchInstrumentMfrByLabel(n)
+  if (hit.hit?.id) return hit.hit.id
+  const res = await http.post('/md/manufacturers', { orgId, mfrName: n, isActive: 1 })
+  const newId = res?.data?.id || null
+  if (newId) {
+    instrumentMfrOptions.value = [
+      ...instrumentMfrOptions.value,
+      { id: newId, mfrName: res?.data?.mfrName || n, mfrCode: res?.data?.mfrCode || '' }
+    ]
+  }
+  return newId
+}
+async function ensureInstrumentVendorId(orgId, name, id) {
+  if (id) return id
+  const n = String(name || '').trim()
+  if (!n) return null
+  const hit = matchInstrumentVendorByLabel(n)
+  if (hit.hit?.id) return hit.hit.id
+  const res = await http.post('/md/vendors', { orgId, vendorName: n, isActive: 1 })
+  const newId = res?.data?.id || null
+  if (newId) {
+    instrumentVendorOptions.value = [
+      ...instrumentVendorOptions.value,
+      { id: newId, vendorName: res?.data?.vendorName || n, vendorCode: res?.data?.vendorCode || '' }
+    ]
+  }
+  return newId
+}
+async function submitInstrumentImport() {
+  if (!instrumentImportRows.value.length) {
+    ElMessage.warning('请先解析出数据后再导入')
+    return
+  }
+  if (instrumentImportRows.value.some((r) => r.error)) {
+    ElMessage.warning('有校验未通过的请核对！')
+    return
+  }
+  const rows = instrumentImportRows.value
+  instrumentImportSaving.value = true
+  instrumentImportDone.value = 0
+  instrumentImportTotal.value = rows.length
+  let ok = 0
+  let fail = 0
+  try {
+    const scope = await resolveStaffOrgScope()
+    const orgId = listOrgId(scope) || effectiveOrgId() || orgOptions.value[0]?.id || null
+    let lastErr = ''
+    for (const r of rows) {
+      try {
+        const manufacturerId = await ensureInstrumentMfrId(orgId, r.manufacturerName, r.manufacturerId)
+        const vendorId = await ensureInstrumentVendorId(orgId, r.vendorName, r.vendorId)
+        const payload = {
+          orgId,
+          instrumentCode: r.instrumentCode || null,
+          instrumentName: r.instrumentName,
+          aliasName: r.aliasName,
+          englishName: r.englishName,
+          brandName: r.brandName,
+          spec: r.spec,
+          model: r.model,
+          udi: r.udi,
+          manufacturerId,
+          manufacturerName: r.manufacturerName || null,
+          vendorId,
+          vendorName: r.vendorName || null,
+          registerNo: r.registerNo,
+          registerValidUntil: r.registerValidUntil,
+          materialName: r.materialName,
+          barcode: r.barcode,
+          instrumentCategory: r.instrumentCategory,
+          instrumentType: r.instrumentType,
+          sterMethod: r.sterMethod,
+          washMethod: r.washMethod,
+          packRequirement: r.packRequirement,
+          isHighValue: 0,
+          isKeyMonitor: 0,
+          currentStatus: '在用',
+          isActive: 1
+        }
+        await http.post('/md/instruments', payload)
+        ok++
+      } catch (e) {
+        fail++
+        lastErr = e?.message || e?.response?.data?.message || lastErr
+      } finally {
+        instrumentImportDone.value += 1
+      }
+    }
+    ElMessage.success(`导入完成：成功 ${ok} 条${fail ? `，失败 ${fail} 条${lastErr ? `（${lastErr}）` : ''}` : ''}`)
+    if (ok) {
+      instrumentImportVisible.value = false
+      await loadInstrumentPage()
+    }
+  } finally {
+    instrumentImportSaving.value = false
+  }
+}
+
 /** 供应商维护 */
 const vendorLoading = ref(false)
 const vendorRows = ref([])
@@ -4595,6 +6134,11 @@ const vendorForm = reactive({
   contactPhone: '',
   companyAddress: '',
   email: '',
+  registeredCapital: '',
+  companyPrincipal: '',
+  businessScope: '',
+  fax: '',
+  website: '',
   vendorTypes: [],
   isActive: 1,
   remark: ''
@@ -4676,6 +6220,11 @@ function fillVendorForm(row) {
   vendorForm.contactPhone = row?.contactPhone || ''
   vendorForm.companyAddress = row?.companyAddress || ''
   vendorForm.email = row?.email || ''
+  vendorForm.registeredCapital = row?.registeredCapital || ''
+  vendorForm.companyPrincipal = row?.companyPrincipal || ''
+  vendorForm.businessScope = row?.businessScope || ''
+  vendorForm.fax = row?.fax || ''
+  vendorForm.website = row?.website || ''
   vendorForm.vendorTypes = parseVendorTypes(row?.vendorTypes)
   vendorForm.isActive = row?.isActive ?? 1
   vendorForm.remark = row?.remark || ''
@@ -4740,6 +6289,11 @@ async function submitVendorForm() {
         contactPhone: vendorForm.contactPhone?.trim() || null,
         companyAddress: vendorForm.companyAddress?.trim() || null,
         email: vendorForm.email?.trim() || null,
+        registeredCapital: vendorForm.registeredCapital?.trim() || null,
+        companyPrincipal: vendorForm.companyPrincipal?.trim() || null,
+        businessScope: vendorForm.businessScope?.trim() || null,
+        fax: vendorForm.fax?.trim() || null,
+        website: vendorForm.website?.trim() || null,
         vendorTypes: vendorForm.vendorTypes.length ? vendorForm.vendorTypes.join(',') : null,
         isActive: vendorForm.isActive,
         remark: vendorForm.remark?.trim() || null
@@ -5449,6 +7003,8 @@ function ensureData(name) {
   else if (name === 'warehouses') loadWarehousePage()
   else if (name === 'vendors') loadVendorPage()
   else if (name === 'manufacturers') loadMfrPage()
+  else if (name === 'instruments') loadInstrumentPage()
+  else if (name === 'templates') loadTplPage()
   else if (name === 'devices') loadDevicePage()
   else if (name === 'units') loadUnitPage()
   else if (name === 'depts') {
@@ -5456,10 +7012,6 @@ function ensureData(name) {
     loadDeptPage()
   }
   else if (name === 'sys-config') loadSysConfigPage()
-  else {
-    const t = dataTabs.find(x => x.key === name)
-    if (t) load(t)
-  }
 }
 
 watch(active, (name) => ensureData(name), { immediate: true })
@@ -5512,6 +7064,21 @@ onMounted(async () => {
 .md-table-wrap :deep(.el-scrollbar__wrap) {
   overflow-x: auto !important;
 }
+/* 仅加粗底部横向滚动条；纵向宽度不改 */
+.md-table-wrap :deep(.el-scrollbar__wrap)::-webkit-scrollbar,
+.md-table-wrap :deep(.el-table__body-wrapper)::-webkit-scrollbar {
+  height: 16px;
+}
+.md-table-wrap :deep(.el-scrollbar__wrap)::-webkit-scrollbar-thumb,
+.md-table-wrap :deep(.el-table__body-wrapper)::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+}
+.md-table-wrap :deep(.el-scrollbar__bar.is-horizontal) {
+  height: 12px !important;
+}
+.md-table-wrap :deep(.el-scrollbar__bar.is-horizontal .el-scrollbar__thumb) {
+  border-radius: 6px;
+}
 .md-pager {
   flex-shrink: 0;
   padding: 10px 12px 8px 0;
@@ -5522,13 +7089,41 @@ onMounted(async () => {
   gap: 4px;
   box-sizing: border-box;
 }
-/* 抽屉挂在内容容器内：绝对定位 + 透明蒙层，不挡顶栏、不变灰 */
+/* 抽屉/弹窗挂在内容容器内：绝对定位，不挡顶栏、页签与左侧菜单 */
 .org-panel :deep(.org-drawer-modal.el-overlay),
 .org-panel :deep(.el-overlay.is-drawer),
 .org-panel :deep(.el-overlay) {
   position: absolute !important;
   inset: 0 !important;
   background-color: transparent !important;
+}
+/* 器械弹窗：铺满主工作区，仅盖住列表区域 */
+.org-panel :deep(.instrument-dialog-modal.el-overlay) {
+  background-color: color-mix(in srgb, var(--brand-dark, #0b5f66) 22%, transparent) !important;
+  z-index: 30 !important;
+}
+.org-panel :deep(.instrument-dialog-modal .el-overlay-dialog) {
+  position: absolute !important;
+  inset: 0 !important;
+  overflow: hidden;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: 10px 12px 12px !important;
+  box-sizing: border-box;
+}
+.org-panel :deep(.instrument-dialog.el-dialog) {
+  position: relative !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  margin: 0 !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
 }
 /* 右侧抽屉贴齐容器右缘，去掉圆角造成的“悬空”感 */
 .org-panel :deep(.el-drawer.rtl),
@@ -6052,6 +7647,81 @@ onMounted(async () => {
   padding: 12px 16px 16px;
   display: flex;
   justify-content: center;
+}
+.instrument-dialog.el-dialog {
+  max-width: none;
+}
+.instrument-dialog .el-dialog__header {
+  padding: 0;
+  flex-shrink: 0;
+}
+.instrument-dialog .org-drawer-header {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+}
+.instrument-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
+}
+.instrument-dialog-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+.instrument-dialog-tabs {
+  flex-shrink: 0;
+  margin: 4px 0 0;
+  background: #fff;
+  z-index: 2;
+}
+.instrument-dialog-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 4px 12px;
+}
+.instrument-form-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: start;
+}
+.instrument-form-grid > .el-form-item {
+  margin-bottom: 12px;
+}
+.instrument-form-span-5 {
+  grid-column: 1 / -1;
+}
+.vendor-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: start;
+}
+.vendor-form-grid > .el-form-item {
+  margin-bottom: 12px;
+}
+.vendor-form-span-2 {
+  grid-column: 1 / -1;
+}
+.instrument-dialog .el-dialog__footer {
+  flex-shrink: 0;
+  justify-content: center !important;
+}
+.instrument-dialog .drawer-footer,
+.instrument-dialog .instrument-dialog-footer {
+  width: 100%;
+  justify-content: center !important;
 }
 .org-auth-dialog .auth-footer {
   display: flex;
