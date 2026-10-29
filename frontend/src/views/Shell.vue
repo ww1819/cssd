@@ -79,12 +79,13 @@
             :disabled="!isPlatformAdmin"
             placeholder="全部机构"
             class="hdr-org-select"
+            :style="{ width: hdrOrgSelectWidth }"
             @update:model-value="onHdrOrgChange"
           >
             <el-option
               v-for="o in orgOptions"
               :key="o.id"
-              :label="`${o.campusCode}|${o.campusName}`"
+              :label="o.campusName"
               :value="o.id"
             />
           </el-select>
@@ -248,6 +249,16 @@ import { THEMES, applyTheme, getThemeId } from '../theme'
 const router = useRouter()
 const route = useRoute()
 const themes = THEMES
+
+/** 顶栏机构名展示宽度：按名称字数自适应，不显示机构编码 */
+const hdrOrgSelectWidth = computed(() => {
+  const hit = orgOptions.value.find((o) => o.id === selectedOrgId.value)
+  const name = (hit?.campusName || (isPlatformAdmin.value ? '全部机构' : '') || '').trim()
+  const len = Math.max([...name].length, 4)
+  // 13px 字号下中文约 13~14px/字，另加箭头与内边距
+  const px = Math.min(Math.max(len * 14 + 32, 96), 560)
+  return `${px}px`
+})
 
 const themeVisible = ref(false)
 const themeSaved = ref(getThemeId())
@@ -897,9 +908,9 @@ function logout() {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
   margin-left: 8px;
-  flex-shrink: 1;
+  flex-shrink: 0;
+  max-width: min(620px, 60vw);
 }
 .hdr-org-label {
   font-size: 13px;
@@ -907,12 +918,12 @@ function logout() {
   white-space: nowrap;
 }
 .hdr-org-select {
-  width: auto;
-  max-width: min(320px, 48vw);
-  min-width: 120px;
+  max-width: min(560px, 55vw);
+  flex-shrink: 1;
 }
 .hdr-org-select :deep(.el-select__wrapper) {
   min-height: 28px;
+  width: 100%;
   padding: 0 4px 0 0;
   border: none !important;
   box-shadow: none !important;
@@ -927,15 +938,20 @@ function logout() {
 }
 .hdr-org-select :deep(.el-select__selection) {
   flex-wrap: nowrap;
+  overflow: visible;
 }
 .hdr-org-select :deep(.el-select__selected-item),
 .hdr-org-select :deep(.el-select__placeholder) {
   font-size: 13px;
   color: #3d5560;
   font-weight: 500;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 .hdr-org-select :deep(.el-select__caret) {
   color: #5a7380;
+  flex-shrink: 0;
 }
 .hdr-spacer { flex: 1; }
 .hdr-user {

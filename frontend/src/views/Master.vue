@@ -1430,7 +1430,7 @@
           <el-input
             v-model="instrumentKeyword"
             clearable
-            placeholder="搜索器械编码 / 名称 / 简码"
+            placeholder="搜索产品编码 / 名称 / 简码"
             class="toolbar-search"
             @keyup.enter="searchInstrumentPage"
             @clear="searchInstrumentPage"
@@ -1476,9 +1476,9 @@
           </div>
           <el-table :data="instrumentImportRows" border height="360" class="md-table" empty-text="请先选择文件并点击解析">
             <el-table-column type="index" label="序号" width="56" />
-            <el-table-column prop="instrumentCode" label="器械编码" min-width="100" show-overflow-tooltip />
-            <el-table-column prop="instrumentName" label="器械名称" min-width="110" show-overflow-tooltip />
-            <el-table-column prop="aliasName" label="别名" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="instrumentCode" label="产品编码" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="instrumentName" label="产品名称" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="aliasName" label="通用名称" min-width="90" show-overflow-tooltip />
             <el-table-column prop="englishName" label="英文名称" min-width="110" show-overflow-tooltip />
             <el-table-column prop="brandName" label="品牌" min-width="90" show-overflow-tooltip />
             <el-table-column prop="spec" label="规格" min-width="80" show-overflow-tooltip />
@@ -1516,9 +1516,14 @@
             @row-dblclick="onInstrumentRowDblclick"
           >
             <el-table-column type="selection" width="48" />
+            <el-table-column label="预览" width="72" align="center" header-align="center" fixed="left">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="previewInstrumentImages(row)">预览</el-button>
+              </template>
+            </el-table-column>
             <el-table-column type="index" label="序号" width="64" :index="instrumentIndex" />
-            <el-table-column prop="instrumentCode" label="器械编码" min-width="120" sortable show-overflow-tooltip />
-            <el-table-column prop="instrumentName" label="器械名称" min-width="140" sortable show-overflow-tooltip />
+            <el-table-column prop="instrumentCode" label="产品编码" min-width="120" sortable show-overflow-tooltip />
+            <el-table-column prop="instrumentName" label="产品名称" min-width="140" sortable show-overflow-tooltip />
             <el-table-column prop="shortCode" label="简码" min-width="90" show-overflow-tooltip />
             <el-table-column prop="spec" label="规格" min-width="100" show-overflow-tooltip />
             <el-table-column prop="model" label="型号" min-width="100" show-overflow-tooltip />
@@ -1561,6 +1566,32 @@
           />
         </div>
         <el-dialog
+          v-model="instrumentPreviewVisible"
+          :title="instrumentPreviewTitle"
+          width="720px"
+          class="org-auth-dialog"
+          append-to-body
+          destroy-on-close
+        >
+          <div v-if="instrumentPreviewImages.length" class="instrument-preview-grid">
+            <el-image
+              v-for="(img, idx) in instrumentPreviewImages"
+              :key="`${img.name}-${idx}`"
+              :src="img.dataUrl"
+              :preview-src-list="instrumentPreviewImages.map((x) => x.dataUrl)"
+              :initial-index="idx"
+              fit="contain"
+              class="instrument-preview-img"
+            />
+          </div>
+          <el-empty v-else description="暂无图片" />
+          <template #footer>
+            <div class="auth-footer">
+              <el-button @click="instrumentPreviewVisible = false">关闭</el-button>
+            </div>
+          </template>
+        </el-dialog>
+        <el-dialog
           v-model="instrumentDrawerVisible"
           width="100%"
           class="org-auth-dialog instrument-dialog"
@@ -1600,28 +1631,40 @@
                       <el-option v-for="o in orgOptions" :key="o.id" :label="`${o.campusCode}|${o.campusName}`" :value="o.id" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="器械编码" prop="instrumentCode">
+                  <el-form-item label="产品编码" prop="instrumentCode">
                     <el-input
                       v-model="instrumentForm.instrumentCode"
                       maxlength="64"
                       :disabled="instrumentDialogMode === 'edit'"
-                      :placeholder="instrumentDialogMode === 'edit' ? '' : '留空自动生成'"
+                      :placeholder="instrumentDialogMode === 'edit' ? '' : '请输入产品编码'"
                     />
                   </el-form-item>
-                  <el-form-item label="器械名称" prop="instrumentName">
-                    <el-input v-model="instrumentForm.instrumentName" maxlength="200" placeholder="请输入器械名称" @input="onInstrumentNameInput" />
+                  <el-form-item label="产品名称" prop="instrumentName">
+                    <el-input v-model="instrumentForm.instrumentName" maxlength="200" placeholder="请输入产品名称" @input="onInstrumentNameInput" />
                   </el-form-item>
-                  <el-form-item label="别名" prop="aliasName">
+                  <el-form-item label="简码" prop="shortCode">
+                    <el-input v-model="instrumentForm.shortCode" maxlength="64" placeholder="自动生成" />
+                  </el-form-item>
+                  <el-form-item label="通用名称" prop="aliasName">
                     <el-input v-model="instrumentForm.aliasName" maxlength="200" placeholder="选填" />
                   </el-form-item>
                   <el-form-item label="英文名称" prop="englishName">
                     <el-input v-model="instrumentForm.englishName" maxlength="200" placeholder="选填" />
                   </el-form-item>
-                  <el-form-item label="简码" prop="shortCode">
-                    <el-input v-model="instrumentForm.shortCode" maxlength="64" placeholder="自动生成" />
+                  <el-form-item label="单价" prop="costPrice">
+                    <el-input-number
+                      v-model="instrumentForm.costPrice"
+                      :min="0"
+                      :precision="4"
+                      :controls="false"
+                      placeholder="选填"
+                      style="width: 100%"
+                    />
                   </el-form-item>
-                  <el-form-item label="品牌" prop="brandName">
-                    <el-input v-model="instrumentForm.brandName" maxlength="128" placeholder="选填" />
+                  <el-form-item label="单位" prop="unitId">
+                    <el-select v-model="instrumentForm.unitId" filterable clearable placeholder="请选择" style="width: 100%">
+                      <el-option v-for="u in instrumentUnitOptions" :key="u.id" :label="u.unitName" :value="u.id" />
+                    </el-select>
                   </el-form-item>
                   <el-form-item label="规格" prop="spec">
                     <el-input v-model="instrumentForm.spec" maxlength="128" placeholder="选填" />
@@ -1654,6 +1697,9 @@
                       style="width: 100%"
                     />
                   </el-form-item>
+                  <el-form-item label="品牌" prop="brandName">
+                    <el-input v-model="instrumentForm.brandName" maxlength="128" placeholder="选填" />
+                  </el-form-item>
                   <el-form-item label="材质" prop="materialName">
                     <el-input v-model="instrumentForm.materialName" maxlength="128" placeholder="如 不锈钢" />
                   </el-form-item>
@@ -1683,21 +1729,6 @@
                   <el-form-item label="包装要求" prop="packRequirement">
                     <el-input v-model="instrumentForm.packRequirement" maxlength="255" placeholder="选填" />
                   </el-form-item>
-                  <el-form-item label="单价" prop="costPrice">
-                    <el-input-number
-                      v-model="instrumentForm.costPrice"
-                      :min="0"
-                      :precision="4"
-                      :controls="false"
-                      placeholder="选填"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                  <el-form-item label="单位" prop="unitId">
-                    <el-select v-model="instrumentForm.unitId" filterable clearable placeholder="请选择" style="width: 100%">
-                      <el-option v-for="u in instrumentUnitOptions" :key="u.id" :label="u.unitName" :value="u.id" />
-                    </el-select>
-                  </el-form-item>
                   <el-form-item label="存放属性" prop="storageAttr">
                     <el-select v-model="instrumentForm.storageAttr" clearable filterable allow-create placeholder="请选择或输入" style="width: 100%">
                       <el-option v-for="o in instrumentStorageAttrOptions" :key="o" :label="o" :value="o" />
@@ -1708,15 +1739,17 @@
                       <el-option v-for="o in instrumentStatusOptions" :key="o" :label="o" :value="o" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="启用" prop="isActive">
-                    <el-switch v-model="instrumentForm.isActive" :active-value="1" :inactive-value="0" />
-                  </el-form-item>
-                  <el-form-item label="高值器械" prop="isHighValue">
-                    <el-switch v-model="instrumentForm.isHighValue" :active-value="1" :inactive-value="0" />
-                  </el-form-item>
-                  <el-form-item label="重点监控器械" prop="isKeyMonitor" label-width="108px">
-                    <el-switch v-model="instrumentForm.isKeyMonitor" :active-value="1" :inactive-value="0" />
-                  </el-form-item>
+                  <div class="instrument-form-span-5 instrument-switch-row">
+                    <el-form-item label="启用" prop="isActive">
+                      <el-switch v-model="instrumentForm.isActive" :active-value="1" :inactive-value="0" />
+                    </el-form-item>
+                    <el-form-item label="高值器械" prop="isHighValue">
+                      <el-switch v-model="instrumentForm.isHighValue" :active-value="1" :inactive-value="0" />
+                    </el-form-item>
+                    <el-form-item label="重点监控器械" prop="isKeyMonitor" label-width="108px">
+                      <el-switch v-model="instrumentForm.isKeyMonitor" :active-value="1" :inactive-value="0" />
+                    </el-form-item>
+                  </div>
                   <el-form-item class="instrument-form-span-5" label="备注" prop="remark">
                     <el-input
                       v-model="instrumentForm.remark"
@@ -5309,10 +5342,32 @@ const instrumentForm = reactive({
 })
 const instrumentRules = {
   orgId: [{ required: true, message: '请选择组织机构', trigger: 'change' }],
-  instrumentName: [{ required: true, message: '请输入器械名称', trigger: 'blur' }]
+  instrumentCode: [{ required: true, message: '请输入产品编码', trigger: 'blur' }],
+  instrumentName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
+  costPrice: [{ required: true, message: '请输入单价', trigger: 'change' }],
+  unitId: [{ required: true, message: '请选择单位', trigger: 'change' }],
+  spec: [{ required: true, message: '请输入规格', trigger: 'blur' }],
+  model: [{ required: true, message: '请输入型号', trigger: 'blur' }],
+  manufacturerId: [{ required: true, message: '请选择生产厂家', trigger: 'change' }],
+  vendorId: [{ required: true, message: '请选择供应商', trigger: 'change' }]
 }
+const instrumentPreviewVisible = ref(false)
+const instrumentPreviewTitle = ref('产品图片预览')
+const instrumentPreviewImages = ref([])
 function instrumentIndex(i) {
   return (instrumentPage.value - 1) * instrumentPageSize.value + i + 1
+}
+function previewInstrumentImages(row) {
+  const list = parseInstrumentJsonList(row?.instrumentImages)
+    .map((x) => ({ name: x?.name || 'image', dataUrl: x?.dataUrl || '' }))
+    .filter((x) => x.dataUrl)
+  if (!list.length) {
+    ElMessage.warning('该产品暂无图片')
+    return
+  }
+  instrumentPreviewTitle.value = `产品图片预览 — ${row?.instrumentCode || ''} ${row?.instrumentName || ''}`.trim()
+  instrumentPreviewImages.value = list
+  instrumentPreviewVisible.value = true
 }
 function searchInstrumentPage() {
   instrumentPage.value = 1
@@ -5589,11 +5644,11 @@ async function deleteInstrumentRow(row) {
 
 /** 器械基础档案导入 */
 const INSTRUMENT_IMPORT_HEADERS = [
-  '器械编码', '器械名称', '别名', '英文名称', '品牌', '规格', '型号', 'UDI',
+  '产品编码', '产品名称', '通用名称', '英文名称', '品牌', '规格', '型号', 'UDI',
   '生产厂家', '供应商', '注册证号', '注册证有效期', '材质', '器械条码',
   '器械分类', '器械类型', '灭菌方式', '清洗方式', '包装要求'
 ]
-const INSTRUMENT_IMPORT_REQUIRED = new Set(['器械名称'])
+const INSTRUMENT_IMPORT_REQUIRED = new Set(['产品名称'])
 const instrumentImportVisible = ref(false)
 const instrumentImportFile = ref(null)
 const instrumentImportFileName = ref('')
@@ -5661,8 +5716,8 @@ function decodeInstrumentImportBuffer(buf) {
     try {
       const text = new TextDecoder(enc, { fatal: false }).decode(buf)
       if (!fallback) fallback = text
-      if (/器械名称/.test(text)) return text
-      if (!text.includes('\uFFFD') && /器械编码/.test(text)) return text
+      if (/产品名称|器械名称/.test(text)) return text
+      if (!text.includes('\uFFFD') && /产品编码|器械编码/.test(text)) return text
     } catch { /* try next */ }
   }
   return fallback || new TextDecoder('utf-8').decode(buf)
@@ -5672,9 +5727,9 @@ function normalizeInstrumentHeaderCell(h) {
 }
 function resolveInstrumentHeaderIndex(headers) {
   const aliases = {
-    器械编码: ['器械编码', 'instrumentcode', '编码'],
-    器械名称: ['器械名称', 'instrumentname', '名称'],
-    别名: ['别名', 'aliasname'],
+    产品编码: ['产品编码', '器械编码', 'instrumentcode', '编码'],
+    产品名称: ['产品名称', '器械名称', 'instrumentname', '名称'],
+    通用名称: ['通用名称', '别名', 'aliasname'],
     英文名称: ['英文名称', '英文名', 'englishname'],
     品牌: ['品牌', '品牌名称', 'brandname', 'brand'],
     规格: ['规格', 'spec'],
@@ -5733,7 +5788,7 @@ function pickInstrumentHeaderRow(matrix) {
     const normalized = headers.map(normalizeInstrumentHeaderCell)
     const first = normalized[0] || ''
     // 模板列序完全一致时直接按位置取值（最稳）
-    if (first === '器械编码') {
+    if (first === '产品编码' || first === '器械编码') {
       let matched = 0
       for (let c = 0; c < Math.min(headers.length, INSTRUMENT_IMPORT_HEADERS.length); c++) {
         const expect = normalizeInstrumentHeaderCell(INSTRUMENT_IMPORT_HEADERS[c])
@@ -5751,7 +5806,7 @@ function pickInstrumentHeaderRow(matrix) {
     }
     const col = resolveInstrumentHeaderIndex(headers)
     const score = scoreInstrumentHeaderCol(col)
-    if (col['器械名称'] >= 0 && score > bestScore) {
+    if (col['产品名称'] >= 0 && score > bestScore) {
       bestScore = score
       best = { headerIndex: i, headers, col, score }
     }
@@ -5948,11 +6003,11 @@ async function parseInstrumentImportFile() {
   const seenInFile = new Set()
   for (let li = headerIndex + 1; li < matrix.length; li++) {
     const cols = matrix[li] || []
-    const instrumentCode = getFrom(cols, '器械编码')
-    const instrumentName = getFrom(cols, '器械名称')
+    const instrumentCode = getFrom(cols, '产品编码')
+    const instrumentName = getFrom(cols, '产品名称')
     if (!instrumentCode && !instrumentName) continue
-    if (normalizeImportHeader(instrumentCode).includes('器械编码') || instrumentName === '器械基础档案导入') continue
-    if (normalizeImportHeader(instrumentName).includes('器械名称')) continue
+    if (/产品编码|器械编码/.test(normalizeImportHeader(instrumentCode)) || instrumentName === '器械基础档案导入') continue
+    if (/产品名称|器械名称/.test(normalizeImportHeader(instrumentName))) continue
     const mfrRaw = getFrom(cols, '生产厂家')
     const vendorRaw = getFrom(cols, '供应商')
     const mfrHit = matchInstrumentMfrByLabel(mfrRaw)
@@ -5960,20 +6015,20 @@ async function parseInstrumentImportFile() {
     const sterHit = matchInstrumentSterMethod(getFrom(cols, '灭菌方式'))
     const dateHit = normalizeInstrumentImportDate(getFrom(cols, '注册证有效期'))
     const errors = []
-    if (!instrumentName) errors.push('缺器械名称')
+    if (!instrumentName) errors.push('缺产品名称')
     // 厂家/供应商不在字典时导入过程自动创建，此处不拦截
     if (getFrom(cols, '灭菌方式') && !sterHit.ok) errors.push('灭菌方式无效')
     if (getFrom(cols, '注册证有效期') && !dateHit.ok) errors.push('注册证有效期格式错误')
     if (instrumentCode && existingCodes.has(instrumentCode)) {
       errors.push('系统已存在，请勿重复导入')
     } else if (instrumentCode && seenInFile.has(instrumentCode)) {
-      errors.push('文件内器械编码重复')
+      errors.push('文件内产品编码重复')
     }
     if (instrumentCode) seenInFile.add(instrumentCode)
     rows.push({
       instrumentCode,
       instrumentName,
-      aliasName: getFrom(cols, '别名') || null,
+      aliasName: getFrom(cols, '通用名称') || null,
       englishName: getFrom(cols, '英文名称') || null,
       brandName: getFrom(cols, '品牌') || null,
       spec: getFrom(cols, '规格') || null,
@@ -7700,6 +7755,28 @@ onMounted(async () => {
 }
 .instrument-form-span-5 {
   grid-column: 1 / -1;
+}
+.instrument-switch-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 10px;
+  align-items: center;
+}
+.instrument-switch-row > .el-form-item {
+  margin-bottom: 12px;
+}
+.instrument-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.instrument-preview-img {
+  width: 100%;
+  height: 160px;
+  border: 1px solid #e5eef1;
+  border-radius: 8px;
+  background: #f7fbfc;
+  overflow: hidden;
 }
 .vendor-form-grid {
   display: grid;
